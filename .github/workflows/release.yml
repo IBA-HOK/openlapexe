@@ -7,6 +7,7 @@ on:
     tags: ["v*.*.*", "v*.*", "v*"]
   pull_request:
     branches: [master, main]
+    types: [opened, synchronize, closed]
   workflow_dispatch:
 
 permissions:
@@ -18,9 +19,18 @@ concurrency:
 
 jobs:
   build:
+    # PRがclosedでマージされてない場合（単にクローズ）はスキップ
+    if: github.event_name != 'pull_request' || github.event.action != 'closed' || github.event.pull_request.merged == true
     runs-on: windows-latest
     steps:
-      - name: Checkout
+      - name: Checkout (PR merged -> base branch)
+        if: github.event_name == 'pull_request' && github.event.pull_request.merged == true
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+
+      - name: Checkout (push / PR open)
+        if: github.event_name != 'pull_request' || github.event.pull_request.merged != true
         uses: actions/checkout@v4
 
       - name: Setup Python 3.11
@@ -72,7 +82,7 @@ jobs:
           path: dist/*
           retention-days: 14
 
-      # タグ push (v*.*.*) 時のみ Releases に公開
+      # タグ push (v*.*.*) 時のみ Releases に公開（従来の手動バージョン指定）
       - name: Create GitHub Release (on tag)
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
@@ -83,33 +93,46 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # --- push to master/main でも自動で Releases を作りたい場合の追加ジョブ ---
-  # 上の build はタグ時のみ Release。master push で毎回 Releaseしたい場合は
-  # 下の auto-release を有効化してください。デフォルトは無効 (if: false)。
-  # 有効化方法: `if: false` を `if: github.ref == 'refs/heads/master' && github.event_name == 'push'` に変更
+  # PRがmaster/mainにマージされたら自動リリース（要件のメイン）
   auto-release:
-    if: false # <-- master pushで自動Releaseしたい場合は条件を書き換えて有効化
+    if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true && (github.event.pull_request.base.ref == 'master' || github.event.pull_request.base.ref == 'main')
     needs: build
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - name: Checkout
+      - name: Checkout base branch
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
 
-      - name: Download artifact
+      - name: Download artifact from build
         uses: actions/download-artifact@v4
         with:
           name: OpenLAPexe-windows-${{ github.sha }}
           path: dist
 
-      - name: Create auto Release
+      - name: List dist
+        run: ls -lhR dist
+
+      - name: Generate tag and create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: auto-v${{ github.run_number }}
-          name: Auto Release v${{ github.run_number }} (${{ github.sha }})
+          # PRマージごとに自動で v0.1.<run_number> 的なタグを切る
+          # 既存タグと衝突しないよう run_number を使用。日付ベースにしたい場合は YYYY.MM.DD に変更可
+          tag_name: v0.1.${{ github.run_number }}
+          name: Release v0.1.${{ github.run_number }} (PR #${{ github.event.pull_request.number }} merge)
+          body: |
+            Auto release triggered by PR #${{ github.event.pull_request.number }} merged into `${{ github.event.pull_request.base.ref }}`
+
+            - PR: ${{ github.event.pull_request.title }} (#${{ github.event.pull_request.number }})
+            - Author: ${{ github.event.pull_request.user.login }}
+            - Merge commit: ${{ github.sha }}
+            - Workflow: ${{ github.run_id }}
+
+            exeは `OpenLAPexe.exe` をDLしてダブルクリックで起動できます。
           files: dist/*
-          prerelease: true
           generate_release_notes: true
+          fail_on_unmatched_files: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
