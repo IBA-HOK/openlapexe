@@ -1,0 +1,22 @@
+# -*- coding: utf-8 -*-
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "openlapexe"
+version = "0.1.0"
+description = "OpenLAP Lap Time Simulator (Tk)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "GPL-3.0-only"}
+dependencies = ["numpy>=1.26"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+openlapexe = ["py.typed"]
+
+[project.scripts]
+openlapexe = "app:main"

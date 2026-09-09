@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
+.venv/
+venv/
+env/
+.omo/
+# PyInstaller
+*.spec
+!app.spec
+*.manifest
+# dist/ はコミット対象外 (単一exe成果物は配布用、リポジトリには含めない)
+# dist/ は上記で既に除外 (build/ と合わせて PyInstaller 成果物)
+
+# Config / local data
+config.json
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# pytest / coverage
+.pytest_cache/
+.coverage
+htmlcov/

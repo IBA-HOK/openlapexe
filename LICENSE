@@ -1,0 +1,41 @@
+                    GNU GENERAL PUBLIC LICENSE
+                       Version 3, 29 June 2007
+
+ Copyright (C) 2007 Free Software Foundation, Inc. <https://fsf.org/>
+ Everyone is permitted to copy and distribute verbatim copies
+ of this license document, but changing it is not allowed.
+
+                            Preamble
+
+  The GNU General Public License is a free, copyleft license for
+software and other kinds of works.
+
+[Full GPLv3 text follows — see https://www.gnu.org/licenses/gpl-3.0.txt]
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+============================================================================
+Origin and inheritance notice (openlapexe):
+
+This project is derived from OpenLAP Lap Time Simulator
+  https://github.com/mc12027/OpenLAP-Lap-Time-Simulator  SHA 882116a
+Original author: Michael Halkiopoulos / Cranfield University
+
+As a derivative work, this project inherits GPLv3 and is licensed
+under GPLv3 as above. Source: app.py and accompanying files in this
+repository.
+============================================================================
+
+For the complete GPLv3 text, see https://www.gnu.org/licenses/gpl-3.0.txt
+or the local copy that was distributed with the original OpenLAP sources.

@@ -1,0 +1,135 @@
+{
+  "Name": "GT3 Generic",
+  "Type": "GT",
+  "M": 1245,
+  "df": 0.48,
+  "L": 2.71,
+  "rack": 12,
+  "Cl": -1.85,
+  "Cd": -0.68,
+  "factor_Cl": 1,
+  "factor_Cd": 1,
+  "da": 0.45,
+  "A": 1.8,
+  "rho": 1.225,
+  "br_disc_d": 0.28,
+  "br_pad_h": 0.045,
+  "br_pad_mu": 0.45,
+  "br_nop": 6,
+  "br_pist_d": 0.042,
+  "br_mast_d": 0.026,
+  "br_ped_r": 4,
+  "factor_grip": 0.98,
+  "tyre_radius": 0.34,
+  "Cr": -0.0015,
+  "mu_x": 1.65,
+  "mu_x_M": 311,
+  "sens_x": 0.00012,
+  "mu_y": 1.7,
+  "mu_y_M": 311,
+  "sens_y": 0.00012,
+  "CF": 800,
+  "CR": 1000,
+  "factor_power": 0.92,
+  "n_thermal": 0.32,
+  "fuel_LHV": 47200000,
+  "drive": "RWD",
+  "shift_time": 0.05,
+  "n_primary": 1,
+  "n_final": 0.92,
+  "n_gearbox": 0.98,
+  "ratio_primary": 1,
+  "ratio_final": 3.85,
+  "ratio_gearbox": [
+    3.2,
+    2.0,
+    1.5,
+    1.2,
+    0.95,
+    0.78
+  ],
+  "torque_curve": [
+    {
+      "rpm": 1000,
+      "torque_nm": 304.0
+    },
+    {
+      "rpm": 1352,
+      "torque_nm": 304.0
+    },
+    {
+      "rpm": 1705,
+      "torque_nm": 304.0
+    },
+    {
+      "rpm": 2058,
+      "torque_nm": 382.35
+    },
+    {
+      "rpm": 2411,
+      "torque_nm": 396.47
+    },
+    {
+      "rpm": 2764,
+      "torque_nm": 410.59
+    },
+    {
+      "rpm": 3117,
+      "torque_nm": 429.41
+    },
+    {
+      "rpm": 3470,
+      "torque_nm": 457.65
+    },
+    {
+      "rpm": 3823,
+      "torque_nm": 485.88
+    },
+    {
+      "rpm": 4176,
+      "torque_nm": 510.59
+    },
+    {
+      "rpm": 4529,
+      "torque_nm": 531.18
+    },
+    {
+      "rpm": 4882,
+      "torque_nm": 545.29
+    },
+    {
+      "rpm": 5235,
+      "torque_nm": 545.29
+    },
+    {
+      "rpm": 5588,
+      "torque_nm": 536.47
+    },
+    {
+      "rpm": 5941,
+      "torque_nm": 522.35
+    },
+    {
+      "rpm": 6294,
+      "torque_nm": 496.47
+    },
+    {
+      "rpm": 6647,
+      "torque_nm": 465.29
+    },
+    {
+      "rpm": 7000,
+      "torque_nm": 430.0
+    }
+  ],
+  "mass_kg": 1245,
+  "weight_dist_front": 0.48,
+  "wheelbase_m": 2.71,
+  "cog_height_m": 0.42,
+  "cda": 0.68,
+  "cl": -1.85,
+  "tire_mu_x": 1.65,
+  "tire_mu_y": 1.7,
+  "engine_power_factor": 0.92,
+  "final_drive": 3.85
+}
