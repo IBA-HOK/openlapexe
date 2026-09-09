@@ -335,14 +335,12 @@ class Vehicle47:
         br_mast_d_val: float = float(data.get("br_mast_d", 0.025))  # type: ignore[arg-type]
         br_ped_r_val: float = float(data.get("br_ped_r", 4.0))  # type: ignore[arg-type]
         factor_grip_val: float = float(data.get("factor_grip", 1.0))  # type: ignore[arg-type]
-        tyre_radius_val: float = float(data.get("tyre_radius", data.get("cog_height_m", 0.33)))  # type: ignore[arg-type]
-        # if WHEEL_RADIUS stored under different key
-        if "tyre_radius" not in data and "wheel_radius" in data:
-            tyre_radius_val = float(data["wheel_radius"])  # type: ignore[arg-type]
-        # if still default and MVP wheelbase etc: try tyre_radius from global default 0.33
-        if tyre_radius_val == 0.33 and "tyre_radius" not in data:
-            # check if data has tyre_radius explicitly
-            pass
+        _tyre_raw = data.get("tyre_radius", data.get("wheel_radius", 0.33))
+        if _tyre_raw is None:
+            _tyre_raw = data.get("wheel_radius", 0.33)
+            if _tyre_raw is None:
+                _tyre_raw = 0.33
+        tyre_radius_val: float = float(_tyre_raw)  # type: ignore[arg-type]
         Cr_val: float = float(data.get("Cr", -0.001))  # type: ignore[arg-type]
         mu_x_val: float = _get_float("mu_x", ("tire_mu_x",))
         mu_x_M_val: float = float(data.get("mu_x_M", 250.0))  # type: ignore[arg-type]

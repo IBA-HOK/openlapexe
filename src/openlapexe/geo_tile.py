@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import collections
+import logging
 import math
 import pathlib
 import struct
@@ -18,6 +19,8 @@ import urllib.error
 import urllib.request
 import zlib
 from typing import Tuple
+
+_log = logging.getLogger("openlapexe.geo_tile")
 
 USER_AGENT: str = "OpenLAPexe/0.1"
 ATTRIBUTION: str = "© OpenStreetMap contributors"
@@ -301,8 +304,19 @@ def fetch_tile(
                     pass
                 _lru_put(key, data)
                 return data
-        except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError, ValueError) as e:
+        except urllib.error.HTTPError as e:
             last_exc = e
+            if e.code == 403:
+                _log.warning("tile 403 forbidden %s %s", url, e)
+            else:
+                _log.warning("tile HTTP %s %s %s", e.code, url, e)
+            if attempt >= RETRY_COUNT:
+                break
+            time.sleep(0.05)
+            continue
+        except (urllib.error.URLError, TimeoutError, OSError, ValueError) as e:
+            last_exc = e
+            _log.info("tile offline %s %s", url, e)
             if attempt >= RETRY_COUNT:
                 break
             time.sleep(0.05)
