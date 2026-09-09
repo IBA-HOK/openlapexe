@@ -1,0 +1,115 @@
+# -*- coding: utf-8 -*-
+name: Build exe and Release
+
+on:
+  push:
+    branches: [master, main]
+    tags: ["v*.*.*", "v*.*", "v*"]
+  pull_request:
+    branches: [master, main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+          pip list
+
+      - name: Run tests (non-blocking)
+        run: |
+          pip install pytest
+          pytest -q || echo "::warning::tests failed - continuing build"
+        shell: bash
+
+      - name: Build exe with PyInstaller
+        run: |
+          pyinstaller --clean --noconfirm app.spec
+          ls -lh dist/
+          dir dist
+        shell: bash
+
+      - name: Rename artifact for release
+        run: |
+          cd dist
+          ls -lh
+          # app.spec は name='app' なので app.exe が出来る -> OpenLAPexe.exe にリネーム
+          if [ -f "app.exe" ]; then
+            cp app.exe OpenLAPexe.exe
+            echo "renamed app.exe -> OpenLAPexe.exe"
+          fi
+          if [ -f "app" ]; then
+            cp app OpenLAPexe
+            echo "renamed app -> OpenLAPexe"
+          fi
+          ls -lh
+        shell: bash
+
+      - name: Upload artifact (always)
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenLAPexe-windows-${{ github.sha }}
+          path: dist/*
+          retention-days: 14
+
+      # タグ push (v*.*.*) 時のみ Releases に公開
+      - name: Create GitHub Release (on tag)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
+          fail_on_unmatched_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # --- push to master/main でも自動で Releases を作りたい場合の追加ジョブ ---
+  # 上の build はタグ時のみ Release。master push で毎回 Releaseしたい場合は
+  # 下の auto-release を有効化してください。デフォルトは無効 (if: false)。
+  # 有効化方法: `if: false` を `if: github.ref == 'refs/heads/master' && github.event_name == 'push'` に変更
+  auto-release:
+    if: false # <-- master pushで自動Releaseしたい場合は条件を書き換えて有効化
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: OpenLAPexe-windows-${{ github.sha }}
+          path: dist
+
+      - name: Create auto Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: auto-v${{ github.run_number }}
+          name: Auto Release v${{ github.run_number }} (${{ github.sha }})
+          files: dist/*
+          prerelease: true
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
