@@ -56,9 +56,19 @@ def _try_import_app2():
 
 
 def main() -> None:
-    """Launch integrated GUI (blocking mainloop)."""
+    if len(sys.argv) > 1 and any(a.startswith("-") for a in sys.argv[1:]):
+        try:
+            from openlapexe.cli import main as cli_main
+
+            cli_main()
+            return
+        except SystemExit:
+            raise
+        except Exception as e:
+            print(f"エラー: CLI失敗: {e}", file=sys.stderr)
+            print("ヒント: --help で使い方を確認してください", file=sys.stderr)
+            sys.exit(2)
     AppCls = _try_import_app2()
-    # Instantiate and run
     inst = AppCls()
     try:
         inst.mainloop()

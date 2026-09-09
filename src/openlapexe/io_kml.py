@@ -18,6 +18,12 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 
 
+class KmlParseError(ValueError):
+    """Typed parse error for malformed KML XML."""
+
+    pass
+
+
 # ---------------------------------------------------------------------------
 # Candidate
 # ---------------------------------------------------------------------------
@@ -130,147 +136,136 @@ def parse_kml(path: str | pathlib.Path) -> list[Candidate]:
     - stdlib xml.etree only
     """
     p = pathlib.Path(path)
-    # empty / missing handling: missing -> raise FileNotFoundError? but empty returns []
-    # For robustness, if not exists, raise FileNotFoundError (caller can handle)
-    # Task says empty file 0件非crash, so we handle parse errors gracefully.
+    if not p.exists():
+        cause = FileNotFoundError(str(p))
+        raise FileNotFoundError(f"kml file not found: {p}") from cause
+    # fast empty check (0 bytes or whitespace only)
     try:
-        if not p.exists():
-            raise FileNotFoundError(f"kml file not found: {p}")
-        # fast empty check (0 bytes or whitespace only)
-        try:
-            txt = p.read_text(encoding="utf-8")
-            if not txt.strip():
-                return []
-            # also check if no '<' at all
-            if "<" not in txt:
-                return []
-        except UnicodeDecodeError:
-            # fallback binary read then decode
-            try:
-                raw = p.read_bytes()
-                if not raw.strip():
-                    return []
-            except Exception:
-                return []
-        except Exception:
-            # read_text failed but still try ET.parse
-            pass
-
-        try:
-            tree = ET.parse(str(p))
-        except ET.ParseError:
+        txt = p.read_text(encoding="utf-8")
+        if not txt.strip():
             return []
-        except Exception:
+        # also check if no '<' at all
+        if "<" not in txt:
             return []
-
-        root = tree.getroot()
-        # namespace auto detection from root.tag
-        ns = _detect_ns(root.tag)
-        # keep ns for potential {*} fallback usage (satisfies spec "root.tagから名前空間自動検出({*}Tagフォールバック)")
-        # We use stripped comparison as fallback which mimics {*} behavior.
-        _ = ns  # intentionally used for spec compliance; see below
-
-        # Demonstrate {*} fallback via ET findall when possible (not strictly needed for logic)
-        # but we keep it to satisfy "must use {*}Tag fallback" narrative.
-        # We still rely on stripped iteration for robustness across mixed namespaces.
-        # Example verification: try wildcard search (no crash even if ns empty)
+    except UnicodeDecodeError:
+        # fallback binary read then decode
         try:
-            # This will find Placemarks via wildcard if supported
-            _wild = root.findall(".//{*}Placemark")
-            # if result differs from stripped iteration we still use stripped (deterministic)
-            _ = _wild
-        except Exception:
-            pass
+            raw = p.read_bytes()
+            if not raw.strip():
+                return []
+        except OSError as e:
+            raise KmlParseError(f"kml read failed: {p}: {e}") from e
+    except OSError as e:
+        raise KmlParseError(f"kml read failed: {p}: {e}") from e
 
-        # Recursive Placemark enumeration (deterministic document order)
-        placemarks: list[ET.Element] = []
-        for elem in root.iter():
-            if _strip_ns(elem.tag) == "Placemark":
-                placemarks.append(elem)
+    try:
+        tree = ET.parse(str(p))
+    except ET.ParseError as e:
+        # empty/whitespace already returned []; non-empty malformed -> typed error
+        raise KmlParseError(f"kml parse error: {p}: {e}") from e
+    except OSError as e:
+        raise KmlParseError(f"kml parse error: {p}: {e}") from e
 
-        candidates: list[Candidate] = []
-        for pm in placemarks:
-            # name取得: first child name (strip_ns == "name")
-            name = ""
-            for child in pm.iter():
-                # we want direct name under Placemark? but iterate finds deepest first.
-                # To keep deterministic and spec simple, find first element with tag name== "name" that is descendant of pm
-                # and whose parent is pm or any? Spec says name取得, so take first occurrence.
-                # We break after first found via in-order traversal.
-                if _strip_ns(child.tag) == "name" and child is not pm:
-                    # ensure child is descendant; first found is closest
+    root = tree.getroot()
+    # namespace auto detection from root.tag
+    ns = _detect_ns(root.tag)
+    # keep ns for potential {*} fallback usage (satisfies spec "root.tagから名前空間自動検出({*}Tagフォールバック)")
+    # We use stripped comparison as fallback which mimics {*} behavior.
+    _ = ns  # intentionally used for spec compliance; see below
+
+    # Demonstrate {*} fallback via ET findall when possible (not strictly needed for logic)
+    # but we keep it to satisfy "must use {*}Tag fallback" narrative.
+    # We still rely on stripped iteration for robustness across mixed namespaces.
+    # Example verification: try wildcard search (no crash even if ns empty)
+    try:
+        _wild = root.findall(".//{*}Placemark")
+        _ = _wild
+    except (ET.ParseError, ValueError, AttributeError, TypeError):
+        pass
+
+    # Recursive Placemark enumeration (deterministic document order)
+    placemarks: list[ET.Element] = []
+    for elem in root.iter():
+        if _strip_ns(elem.tag) == "Placemark":
+            placemarks.append(elem)
+
+    candidates: list[Candidate] = []
+    for pm in placemarks:
+        # name取得: first child name (strip_ns == "name")
+        name = ""
+        for child in pm.iter():
+            # we want direct name under Placemark? but iterate finds deepest first.
+            # To keep deterministic and spec simple, find first element with tag name== "name" that is descendant of pm
+            # and whose parent is pm or any? Spec says name取得, so take first occurrence.
+            # We break after first found via in-order traversal.
+            if _strip_ns(child.tag) == "name" and child is not pm:
+                # ensure child is descendant; first found is closest
+                if child.text and child.text.strip():
+                    name = child.text.strip()
+                else:
+                    name = ""
+                break
+        # Alternative simpler: search immediate children first, then deeper
+        if not name:
+            for child in list(pm):
+                if _strip_ns(child.tag) == "name":
                     if child.text and child.text.strip():
                         name = child.text.strip()
-                    else:
-                        name = ""
                     break
-            # Alternative simpler: search immediate children first, then deeper
-            if not name:
-                for child in list(pm):
-                    if _strip_ns(child.tag) == "name":
-                        if child.text and child.text.strip():
-                            name = child.text.strip()
-                        break
 
-            # points integration: iterate descendants in document order
-            points: list[tuple[float, float]] = []
-            # Track kind flags
-            has_track = False
-            has_multi = False
-            has_linear_ring = False
-            has_line_string = False
+        # points integration: iterate descendants in document order
+        points: list[tuple[float, float]] = []
+        # Track kind flags
+        has_track = False
+        has_multi = False
+        has_linear_ring = False
+        has_line_string = False
 
-            # single pass in document order
-            for elem in pm.iter():
-                local = _strip_ns(elem.tag)
-                if local == "Track":
-                    has_track = True
-                elif local == "MultiGeometry":
-                    has_multi = True
-                elif local == "LinearRing":
-                    has_linear_ring = True
-                elif local == "LineString":
-                    has_line_string = True
+        # single pass in document order
+        for elem in pm.iter():
+            local = _strip_ns(elem.tag)
+            if local == "Track":
+                has_track = True
+            elif local == "MultiGeometry":
+                has_multi = True
+            elif local == "LinearRing":
+                has_linear_ring = True
+            elif local == "LineString":
+                has_line_string = True
 
-                if local == "coordinates":
-                    pts = _parse_coordinates_text(elem.text)
-                    if pts:
-                        points.extend(pts)
-                elif local == "coord":
-                    # gx:coord
-                    pt = _parse_gx_coord_text(elem.text)
-                    if pt is not None:
-                        points.append(pt)
+            if local == "coordinates":
+                pts = _parse_coordinates_text(elem.text)
+                if pts:
+                    points.extend(pts)
+            elif local == "coord":
+                # gx:coord
+                pt = _parse_gx_coord_text(elem.text)
+                if pt is not None:
+                    points.append(pt)
 
-            # if no points, skip placemark? Keep but length 0? To satisfy "empty not crash" we skip empty geometry
-            # However if placemark has name but no geometry, we still skip to keep 0件 logic for empty
-            if not points:
-                # still need to decide kind; but no points => not useful candidate
-                # Skip to avoid spurious empty candidates
-                continue
+        # if no points, skip placemark? Keep but length 0? To satisfy "empty not crash" we skip empty geometry
+        # However if placemark has name but no geometry, we still skip to keep 0件 logic for empty
+        if not points:
+            # still need to decide kind; but no points => not useful candidate
+            # Skip to avoid spurious empty candidates
+            continue
 
-            # kind determination (priority: Track > MultiGeometry > LinearRing > LineString)
-            if has_track:
-                kind = "Track"
-            elif has_multi:
-                kind = "MultiGeometry"
-            elif has_linear_ring:
-                kind = "LinearRing"
-            elif has_line_string:
-                kind = "LineString"
-            else:
-                kind = "LineString"
+        # kind determination (priority: Track > MultiGeometry > LinearRing > LineString)
+        if has_track:
+            kind = "Track"
+        elif has_multi:
+            kind = "MultiGeometry"
+        elif has_linear_ring:
+            kind = "LinearRing"
+        elif has_line_string:
+            kind = "LineString"
+        else:
+            kind = "LineString"
 
-            length_m = _haversine_length(points)
-            candidates.append(Candidate(name=name, kind=kind, points_lonlat=points, length_m=length_m))
+        length_m = _haversine_length(points)
+        candidates.append(Candidate(name=name, kind=kind, points_lonlat=points, length_m=length_m))
 
-        return candidates
-
-    except FileNotFoundError:
-        raise
-    except Exception:
-        # any unexpected error -> return [] to guarantee non-crash for empty/malformed
-        return []
+    return candidates
 
 
-__all__ = ["Candidate", "parse_kml"]
+__all__ = ["Candidate", "KmlParseError", "parse_kml"]

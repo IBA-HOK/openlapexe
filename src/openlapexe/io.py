@@ -71,12 +71,10 @@ def get_config_path() -> pathlib.Path:
 
 
 def _atomic_write_text(path: pathlib.Path, text: str, encoding: str = "utf-8") -> None:
-    """Atomic save: tmp -> replace (encoding utf-8 fixed)."""
-    # encoding fixed to utf-8 regardless of caller value (spec: encoding=utf-8固定)
-    _ = encoding  # keep signature compat but enforce utf-8
+    """Atomic save: tmp -> replace (honors caller encoding)."""
     tmp = path.with_suffix(path.suffix + ".tmp")
     tmp.parent.mkdir(parents=True, exist_ok=True)
-    tmp.write_text(text, encoding="utf-8")
+    tmp.write_text(text, encoding=encoding)
     tmp.replace(path)
 
 

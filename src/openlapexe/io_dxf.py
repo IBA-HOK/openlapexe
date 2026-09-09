@@ -9,12 +9,16 @@ DXF coordinates are assumed already projected (plane orthogonal); no transform.
 """
 from __future__ import annotations
 
+import logging
 import math
 import pathlib
+import warnings
 from dataclasses import dataclass
 
 import numpy as np
 import numpy.typing as npt
+
+_log = logging.getLogger("openlapexe.io_dxf")
 
 
 @dataclass(frozen=True, slots=True)
@@ -146,6 +150,52 @@ def _pairs_to_dict(chunk: list[tuple[int, str]]) -> dict[int, str]:
     return d
 
 
+def _transform_points(
+    pts: list[tuple[float, float]],
+    ix: float,
+    iy: float,
+    sx: float,
+    sy: float,
+    cos_a: float,
+    sin_a: float,
+) -> list[tuple[float, float]]:
+    out: list[tuple[float, float]] = []
+    for x, y in pts:
+        xs = x * sx
+        ys = y * sy
+        xr = xs * cos_a - ys * sin_a + ix
+        yr = xs * sin_a + ys * cos_a + iy
+        out.append((xr, yr))
+    return out
+
+
+def _parse_section_map(
+    pairs: list[tuple[int, str]],
+) -> dict[str, list[tuple[int, str]]]:
+    sections: dict[str, list[tuple[int, str]]] = {}
+    cur: str | None = None
+    buf: list[tuple[int, str]] = []
+    i = 0
+    while i < len(pairs):
+        code, val = pairs[i]
+        if code == 0 and val == "SECTION":
+            if i + 1 < len(pairs) and pairs[i + 1][0] == 2:
+                cur = pairs[i + 1][1].upper()
+                buf = []
+                i += 2
+                continue
+        if code == 0 and val == "ENDSEC" and cur is not None:
+            sections[cur] = buf
+            cur = None
+            buf = []
+            i += 1
+            continue
+        if cur is not None:
+            buf.append((code, val))
+        i += 1
+    return sections
+
+
 def parse_dxf(path: str | pathlib.Path) -> list[Candidate]:
     p = pathlib.Path(path)
     if not p.exists():
@@ -170,35 +220,83 @@ def parse_dxf(path: str | pathlib.Path) -> list[Candidate]:
         val = lines[i + 1].strip()
         pairs.append((code, val))
 
-    # ENTITIES extraction
-    entities: list[tuple[int, str]] = []
-    in_entities = False
-    found = False
-    i = 0
-    while i < len(pairs):
-        code, val = pairs[i]
-        if code == 0 and val == "SECTION":
-            if i + 1 < len(pairs) and pairs[i + 1][0] == 2 and pairs[i + 1][1] == "ENTITIES":
-                in_entities = True
-                found = True
-                i += 2
+    sections = _parse_section_map(pairs)
+    if "ENTITIES" in sections:
+        entities = sections["ENTITIES"]
+        found = True
+    elif "BLOCKS" in sections or any(
+        c == 0 and v in ("LINE", "LWPOLYLINE", "POLYLINE", "ARC", "CIRCLE", "SPLINE", "VERTEX", "SEQEND", "INSERT")
+        for c, v in pairs
+    ):
+        # no ENTITIES section: fallback similar to original but prefer section map
+        # if ENTITIES missing but pairs contain entities, treat whole file as entities (minimal headers)
+        if not sections:
+            has_entity = any(
+                c == 0 and v in ("LINE", "LWPOLYLINE", "POLYLINE", "ARC", "CIRCLE", "SPLINE", "VERTEX", "SEQEND", "INSERT")
+                for c, v in pairs
+            )
+            entities = pairs if has_entity else []
+        else:
+            entities = []
+        found = "ENTITIES" in sections
+    else:
+        entities = []
+        found = False
+    # original fallback path when ENTITIES section not found but pairs contain entities
+    if not found and not entities:
+        has_entity = any(
+            c == 0 and v in ("LINE", "LWPOLYLINE", "POLYLINE", "ARC", "CIRCLE", "SPLINE", "VERTEX", "SEQEND", "INSERT")
+            for c, v in pairs
+        )
+        if has_entity:
+            entities = pairs
+    # BLOCKS extraction
+    if "BLOCKS" in sections:
+        blocks_raw = sections["BLOCKS"]
+    else:
+        # fallback: if no BLOCKS section but pairs contain BLOCK, collect those pairs
+        has_block = any(c == 0 and v in ("BLOCK", "ENDBLK") for c, v in pairs)
+        blocks_raw = pairs if has_block and "ENTITIES" not in sections else []
+
+    blocks: dict[str, list[list[tuple[int, str]]]] = {}
+    if blocks_raw:
+        blk_chunks: list[list[tuple[int, str]]] = []
+        cur_b: list[tuple[int, str]] = []
+        for code, val in blocks_raw:
+            if code == 0:
+                if cur_b:
+                    blk_chunks.append(cur_b)
+                cur_b = [(code, val)]
+            else:
+                if not cur_b:
+                    continue
+                cur_b.append((code, val))
+        if cur_b:
+            blk_chunks.append(cur_b)
+        j = 0
+        while j < len(blk_chunks):
+            typ_b = blk_chunks[j][0][1].upper() if blk_chunks[j] else ""
+            if typ_b == "BLOCK":
+                d_b = _pairs_to_dict(blk_chunks[j])
+                bname = d_b.get(2, "")
+                ent_list: list[list[tuple[int, str]]] = []
+                k = j + 1
+                while k < len(blk_chunks):
+                    t2 = blk_chunks[k][0][1].upper() if blk_chunks[k] else ""
+                    if t2 == "ENDBLK":
+                        k += 1
+                        break
+                    if t2 == "BLOCK":
+                        break
+                    ent_list.append(blk_chunks[k])
+                    k += 1
+                if bname:
+                    blocks[bname] = ent_list
+                    blocks[bname.upper()] = ent_list
+                    blocks[bname.lower()] = ent_list
+                j = k
                 continue
-        if code == 0 and val == "ENDSEC" and in_entities:
-            in_entities = False
-            break
-        if in_entities:
-            entities.append((code, val))
-        i += 1
-    if not found:
-        # fallback: if no SECTION/ENTITIES markers, treat whole file as entities
-        # but only if ENTITIES was never found; use all pairs that look like entities?
-        # heuristically treat all pairs after first ENTITIES token
-        # if still empty, use pairs directly (allows minimal test files without headers)
-        if not entities:
-            # check if pairs contain any known entity type 0 chunk
-            has_entity = any(c == 0 and v in ("LINE", "LWPOLYLINE", "POLYLINE", "ARC", "CIRCLE", "SPLINE", "VERTEX", "SEQEND") for c, v in pairs)
-            if has_entity:
-                entities = pairs
+            j += 1
 
     # 0-chunk split
     chunks: list[list[tuple[int, str]]] = []
@@ -349,7 +447,6 @@ def parse_dxf(path: str | pathlib.Path) -> list[Candidate]:
                 candidates.append(Candidate(name=f"CIRCLE_{idx}", kind="CIRCLE", points_xy=arr, length_m=_length(arr)))
                 idx += 1
         elif typ == "SPLINE":
-            # collect 10,20 control points in order
             pts = []
             cur_x = None
             cur_y = None
@@ -373,11 +470,198 @@ def parse_dxf(path: str | pathlib.Path) -> list[Candidate]:
                         cur_y = None
             if cur_x is not None and cur_y is not None:
                 pts.append((cur_x, cur_y))
-            # fallback: if collected via sequential but not paired due to order, handle
             if len(pts) >= 2:
                 arr = np.asarray(pts, dtype=float)
                 candidates.append(Candidate(name=f"SPLINE_{idx}", kind="SPLINE", points_xy=arr, length_m=_length(arr)))
                 idx += 1
+        elif typ == "INSERT":
+            d = _pairs_to_dict(chunks[i])
+            bname = d.get(2, "").strip()
+            loc = f"{p}:{i+1}"
+            if not bname:
+                msg = f"{loc} unsupported INSERT without block name"
+                warnings.warn(msg, UserWarning, stacklevel=2)
+                _log.warning(msg)
+                i += 1
+                continue
+            ent_list = blocks.get(bname) or blocks.get(bname.upper()) or blocks.get(bname.lower())
+            if ent_list is None or len(ent_list) == 0:
+                msg = f"{loc} unsupported INSERT block not found: {bname}"
+                warnings.warn(msg, UserWarning, stacklevel=2)
+                _log.warning(msg)
+                i += 1
+                continue
+            try:
+                ix = float(d.get(10, "0"))
+            except Exception:
+                ix = 0.0
+            try:
+                iy = float(d.get(20, "0"))
+            except Exception:
+                iy = 0.0
+            try:
+                sx = float(d.get(41, "1"))
+            except Exception:
+                sx = 1.0
+            try:
+                sy = float(d.get(42, "1"))
+            except Exception:
+                sy = 1.0
+            # handle uniform fallback when only 41 given
+            if "42" not in d and "41" in d:
+                sy = sx
+            try:
+                rot = float(d.get(50, "0"))
+            except Exception:
+                rot = 0.0
+            rad = math.radians(rot)
+            cos_a = math.cos(rad)
+            sin_a = math.sin(rad)
+            for blk_chunk in ent_list:
+                btyp = blk_chunk[0][1].upper() if blk_chunk else ""
+                if btyp == "LINE":
+                    bd = _pairs_to_dict(blk_chunk)
+                    try:
+                        x0 = float(bd.get(10, "0"))
+                        y0 = float(bd.get(20, "0"))
+                        x1 = float(bd.get(11, "0"))
+                        y1 = float(bd.get(21, "0"))
+                    except Exception:
+                        continue
+                    pts_t = _transform_points([(x0, y0), (x1, y1)], ix, iy, sx, sy, cos_a, sin_a)
+                    arr = np.asarray(pts_t, dtype=float)
+                    candidates.append(Candidate(name=f"INSERT_{bname}_{idx}", kind="LINE", points_xy=arr, length_m=_length(arr)))
+                    idx += 1
+                elif btyp == "LWPOLYLINE":
+                    verts: list[tuple[float, float]] = []
+                    bulges: list[float] = []
+                    cur_x = None
+                    cur_y = None
+                    cur_b = 0.0
+                    closed = False
+                    for c, v in blk_chunk:
+                        if c == 70:
+                            try:
+                                closed = bool(int(float(v)) & 1)
+                            except Exception:
+                                pass
+                    for c, v in blk_chunk:
+                        if c == 10:
+                            if cur_x is not None and cur_y is not None:
+                                verts.append((cur_x, cur_y))
+                                bulges.append(cur_b)
+                                cur_b = 0.0
+                            try:
+                                cur_x = float(v)
+                            except Exception:
+                                cur_x = 0.0
+                            cur_y = None
+                        elif c == 20:
+                            try:
+                                cur_y = float(v)
+                            except Exception:
+                                cur_y = 0.0
+                        elif c == 42:
+                            try:
+                                cur_b = float(v)
+                            except Exception:
+                                cur_b = 0.0
+                    if cur_x is not None and cur_y is not None:
+                        verts.append((cur_x, cur_y))
+                        bulges.append(cur_b)
+                    pts = _build_polyline(verts, bulges, closed)
+                    if pts is not None and len(pts) >= 2:
+                        pts_t = _transform_points(pts, ix, iy, sx, sy, cos_a, sin_a)
+                        arr = np.asarray(pts_t, dtype=float)
+                        candidates.append(Candidate(name=f"INSERT_{bname}_{idx}", kind="LWPOLYLINE", points_xy=arr, length_m=_length(arr)))
+                        idx += 1
+                elif btyp == "POLYLINE":
+                    # POLYLINE in BLOCKS: collect VERTEX chunks that follow inside ent_list is flattened,
+                    # but our ent_list splits each 0-chunk separately, so VERTEX/SEQEND are separate chunks,
+                    # not header+verts. For BLOCKS POLYLINE, verts follow as subsequent chunks in blocks_raw
+                    # We handle simple case: if following chunks in ent_list are VERTEX, consume them.
+                    # Since ent_list is list of chunks, find next VERTEX chunks after this one.
+                    # Reconstruct similarly to main loop using index within ent_list.
+                    pass
+                elif btyp == "ARC":
+                    bd = _pairs_to_dict(blk_chunk)
+                    try:
+                        cx = float(bd.get(10, "0"))
+                        cy = float(bd.get(20, "0"))
+                        r = float(bd.get(40, "0"))
+                        a0 = float(bd.get(50, "0"))
+                        a1 = float(bd.get(51, "0"))
+                    except Exception:
+                        continue
+                    r_scaled = r * (abs(sx) + abs(sy)) / 2.0 if sx != sy else r * abs(sx)
+                    pts_raw = _arc_points(0, 0, r_scaled, a0 + rot, a1 + rot)
+                    if pts_raw:
+                        cx_t, cy_t = _transform_points([(cx, cy)], ix, iy, sx, sy, cos_a, sin_a)[0]
+                        pts_t = [(x + cx_t, y + cy_t) for x, y in [(px, py) for px, py in pts_raw]]
+                        # _arc_points already at origin scaled, need offset to transformed center
+                        # pts_raw generated around (0,0) with r_scaled; shift to cx_t,cy_t
+                        # Already done above via offset
+                        arr = np.asarray(pts_t, dtype=float)
+                        candidates.append(Candidate(name=f"INSERT_{bname}_{idx}", kind="ARC", points_xy=arr, length_m=_length(arr)))
+                        idx += 1
+                elif btyp == "CIRCLE":
+                    bd = _pairs_to_dict(blk_chunk)
+                    try:
+                        cx = float(bd.get(10, "0"))
+                        cy = float(bd.get(20, "0"))
+                        r = float(bd.get(40, "0"))
+                    except Exception:
+                        continue
+                    r_scaled = r * (abs(sx) + abs(sy)) / 2.0 if sx != sy else r * abs(sx)
+                    pts_raw = _circle_points(0, 0, r_scaled)
+                    if pts_raw:
+                        cx_t, cy_t = _transform_points([(cx, cy)], ix, iy, sx, sy, cos_a, sin_a)[0]
+                        pts_t = [(x + cx_t, y + cy_t) for x, y in pts_raw]
+                        arr = np.asarray(pts_t, dtype=float)
+                        candidates.append(Candidate(name=f"CIRCLE_{idx}", kind="CIRCLE", points_xy=arr, length_m=_length(arr)))
+                        idx += 1
+                elif btyp == "SPLINE":
+                    pts_s: list[tuple[float, float]] = []
+                    sx_sp = None
+                    sy_sp = None
+                    for c, v in blk_chunk:
+                        if c == 10:
+                            if sx_sp is not None and sy_sp is not None:
+                                pts_s.append((sx_sp, sy_sp))
+                            try:
+                                sx_sp = float(v)
+                            except Exception:
+                                sx_sp = 0.0
+                            sy_sp = None
+                        elif c == 20:
+                            try:
+                                sy_sp = float(v)
+                            except Exception:
+                                sy_sp = 0.0
+                            if sx_sp is not None and sy_sp is not None:
+                                pts_s.append((sx_sp, sy_sp))
+                                sx_sp = None
+                                sy_sp = None
+                    if sx_sp is not None and sy_sp is not None:
+                        pts_s.append((sx_sp, sy_sp))
+                    if len(pts_s) >= 2:
+                        pts_t = _transform_points(pts_s, ix, iy, sx, sy, cos_a, sin_a)
+                        arr = np.asarray(pts_t, dtype=float)
+                        candidates.append(Candidate(name=f"INSERT_{bname}_{idx}", kind="SPLINE", points_xy=arr, length_m=_length(arr)))
+                        idx += 1
+                elif btyp == "INSERT":
+                    msg2 = f"{loc} unsupported nested INSERT in block {bname}: {blk_chunk[0][1] if blk_chunk else ''}"
+                    warnings.warn(msg2, UserWarning, stacklevel=2)
+                    _log.warning(msg2)
+                else:
+                    msg2 = f"{loc} unsupported entity in block {bname}: {btyp}"
+                    warnings.warn(msg2, UserWarning, stacklevel=2)
+                    _log.warning(msg2)
+        else:
+            loc = f"{p}:{i+1}"
+            msg = f"{loc} unsupported DXF entity: {typ}"
+            warnings.warn(msg, UserWarning, stacklevel=2)
+            _log.warning(msg)
         i += 1
     return candidates
 

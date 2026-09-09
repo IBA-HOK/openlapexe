@@ -76,8 +76,7 @@ def _build_driveline_cache(vehicle: object) -> dict[str, _npt.NDArray[_np.float6
     en_speed = _np.array([float(p[0]) for p in tc], dtype=_np.float64)  # MATLAB:OpenVEHICLE.m:151
     en_torque = _np.array([float(p[1]) for p in tc], dtype=_np.float64)  # MATLAB:OpenVEHICLE.m:152
     if en_speed.shape[0] == 0:
-        en_speed = _np.array([1000.0, 8000.0], dtype=_np.float64)
-        en_torque = _np.array([100.0, 100.0], dtype=_np.float64)
+        raise ValueError("torque_curve empty")
     rp = float(getattr(vehicle, "ratio_primary", 1.0))  # MATLAB:OpenVEHICLE.m:101
     rf = float(getattr(vehicle, "ratio_final", getattr(vehicle, "final_drive", 7.0)))  # MATLAB:OpenVEHICLE.m:102
     rg_raw = getattr(vehicle, "ratio_gearbox", (1.0,))
@@ -249,10 +248,19 @@ def simulate_full(
     前後6反復、閉ループv0==vN、sector合計==laptime を保証。
     """
     _ = _kwargs  # MATLAB:OpenLAP.m:98 simname/logid unused in src
+    # WA.2 fail-fast freq validation: non-numeric => TypeError, <=0 or >200 => ValueError
+    if isinstance(freq, bool) or not isinstance(freq, (int, float)):
+        raise TypeError("freq must be numeric")
+    try:
+        freq_f = float(freq)
+    except Exception as e:
+        raise TypeError("freq must be numeric") from e
+    if not _math.isfinite(freq_f):
+        raise ValueError("freq must be finite")
     # MATLAB:OpenLAP.m:890 freq = round(freq) % export_report
-    freq_i: int = int(round(float(freq)))  # MATLAB:OpenLAP.m:890
-    if freq_i <= 0:
-        freq_i = 50  # MATLAB:OpenLAP.m:64 default 50
+    freq_i: int = int(round(freq_f))  # MATLAB:OpenLAP.m:890
+    if freq_i <= 0 or freq_i > 200:
+        raise ValueError("freq must be in 1..200")
     # MATLAB:OpenLAP.m:64 freq尊重 mesh刻み決定 (100/freq を 1..5にclamp)
     step: float = 100.0 / float(freq_i)  # MATLAB:OpenLAP.m:64 freq->step mapping (50=>2,100=>1)
     if step < 1.0:
@@ -302,16 +310,34 @@ def simulate_full(
         # fallback: single sector
         sector_arr[:] = 1.0
     n: int = int(s_arr.shape[0])  # MATLAB:OpenLAP.m: tr.n
-    # MATLAB:OpenLAP.m: tr.dx = diff(tr.x) with periodic handling
+    # WA.3 periodic wrap: sum(dx)==L within 1e-9 on closed loop — MATLAB:OpenLAP.m tr.dx periodic
+    closed_wrap: bool = bool(getattr(tr_m, "closed_loop", True))  # MATLAB:OpenLAP.m closed
+    L_wrap: float = float(tr_m.length_m) if float(tr_m.length_m) > 1e-12 else float(s_arr[-1]) if n >= 1 else float(step)
     dx: _npt.NDArray[_np.float64] = _np.zeros(n, dtype=float)  # MATLAB:OpenLAP.m: tr.dx
     for _i in range(n - 1):
         dx[_i] = float(s_arr[_i + 1] - s_arr[_i])  # MATLAB:OpenLAP.m: dx
-    # For closed loop, last dx = step? set to same as average to keep periodicity; MATLAB tr.dx(end) exists
-    if n >= 2:
-        # Use same as previous for last element to avoid zero (for time integration)
-        dx[-1] = float(dx[-2]) if float(dx[-2]) > 1e-12 else float(step)
+    if closed_wrap:
+        # periodic wrap: last segment closes loop — L - s[-1] (s[-1]==L =>0) or hypot wrap
+        # hypot alternative: _math.hypot(float(x_arr[0]-x_arr[-1]), float(y_arr[0]-y_arr[-1]))
+        wrap_hyp = float(_math.hypot(float(x_arr[0] - x_arr[-1]), float(y_arr[0] - y_arr[-1]))) if n >= 1 else 0.0
+        wrap_s = float(L_wrap - float(s_arr[-1]) + float(s_arr[0])) if n >= 1 else float(step)
+        # Prefer s-based wrap to keep sum(dx)==L; use hypot only if wrap_s ~0 and hypot >1e-12? For meshed closed track s[-1]==L =>0, keep 0 for conservation
+        if abs(wrap_s) < 1e-12:
+            dx[-1] = float(wrap_s)  # 0 keeps sum==L
+        else:
+            # L - s[-1] already ensures sum==L; fall back to hypot if s wrap inconsistent
+            # Use wrap_s which equals L - s[-1]; hypot is geometric check
+            dx[-1] = float(wrap_s) if abs(wrap_s) > 1e-12 else float(wrap_hyp)
+        # Clamp tiny negative due to float
+        if dx[-1] < 0 and dx[-1] > -1e-9:
+            dx[-1] = 0.0
+        # Ensure L - s_arr sum conservation: sum(dx) == L within 1e-9
+        # For open track, last dx copies previous (no wrap)
     else:
-        dx[-1] = float(step)
+        if n >= 2:
+            dx[-1] = float(dx[-2]) if float(dx[-2]) > 1e-12 else float(step)
+        else:
+            dx[-1] = float(step)
     # incl derived from elevation: MATLAB:OpenLAP.m: tr.incl = atand(diff(Z)/dx)
     incl_arr: _npt.NDArray[_np.float64] = _np.zeros(n, dtype=float)  # MATLAB:OpenLAP.m: tr.incl [deg]
     for _i in range(n - 1):
@@ -321,7 +347,17 @@ def simulate_full(
             incl_arr[_i] = _math.degrees(_math.atan2(dz, ddx))  # MATLAB:OpenLAP.m: incl
         else:
             incl_arr[_i] = 0.0
-    incl_arr[-1] = float(incl_arr[-2]) if n >= 2 else 0.0
+    # WA.3 incl wrap: atan2(z0 - z[-1], dx[-1]) not copy
+    if n >= 1:
+        ddx_last = float(dx[-1])
+        if abs(ddx_last) > 1e-12:
+            dz_last = float(z_arr[0] - z_arr[-1])
+            incl_arr[-1] = _math.degrees(_math.atan2(dz_last, ddx_last))
+        else:
+            # dx wrap ~0 (closed meshed track where last point coincides with start) => incl 0
+            incl_arr[-1] = 0.0
+    else:
+        incl_arr[-1] = 0.0
     # bank deg for cosd/sind: MATLAB:OpenLAP.m: bank [deg] but Track2 stores rad
     bank_deg: _npt.NDArray[_np.float64] = _np.degrees(bank_arr)  # MATLAB:OpenLAP.m: bank deg conversion
     # grip factor clamped: MATLAB:OpenLAP.m: tr.factor_grip * veh.factor_grip
@@ -424,14 +460,12 @@ def simulate_full(
     v_max_arr[mask_curve] = _np.sqrt(mu_y_base * g_const / _np.maximum(curv_abs[mask_curve], 1e-12))  # MATLAB:OpenLAP.m initial speed
     # iterative aero correction 8 iterations deterministic  MATLAB:OpenLAP.m:688-753 while adjust_speed
     for _ in range(8):  # MATLAB:OpenLAP.m:708 while adjust_speed initial
-        # Aero_Df, Aero_Dr  MATLAB:OpenLAP.m:223-224
-        # Use Cl,Cd negative => Aero_Df negative (downforce negative), Aero_Dr negative (drag)
-        downforce = -0.5 * rho * Cl * factor_Cl * A * v_max_arr * v_max_arr  # Actually MATLAB: Fz_aero =1/2*rho*factor_Cl*Cl*A*V^2 negative => downforce positive magnitude
-        # But we need Aero_Df = 0.5*rho*factor_Cl*Cl*A*v^2 (negative) => -Aero_Df + Wz is total
-        Aero_Df = 0.5 * rho * factor_Cl * Cl * A * v_max_arr * v_max_arr  # MATLAB:OpenLAP.m:223 Aero_Df negative
-        # Wz per point with bank/incl  MATLAB:OpenLAP.m:675 Wz = M*g*cosd(bank)*cosd(incl)
-        Wz_arr = M * g_const * _np.cos(_np.radians(bank_deg)) * _np.cos(_np.radians(incl_arr))  # MATLAB:OpenLAP.m:678
-        Nz = Wz_arr - Aero_Df  # MATLAB:OpenLAP.m: Wz - Aero_Df? Since Aero_Df negative, adds
+        # WA.6 unified aero sign — MATLAB:OpenLAP.m:223-224,468-470
+        # Fz_aero=0.5*rho*Cl*A*v^2 (negative), Fz_total=Fz_mass+Fz_aero, Nz=-(Fz_total)
+        Fz_mass_arr = -M * g_const * _np.cos(_np.radians(bank_deg)) * _np.cos(_np.radians(incl_arr))  # MATLAB:OpenLAP.m:468 Fz_mass negative
+        Fz_aero_arr = 0.5 * rho * factor_Cl * Cl * A * v_max_arr * v_max_arr  # MATLAB:OpenLAP.m:469 Fz_aero negative
+        Fz_total_arr = Fz_mass_arr + Fz_aero_arr  # MATLAB:OpenLAP.m:470 Fz_total
+        Nz = -(Fz_total_arr)  # MATLAB:OpenLAP.m: Nz=-(Fz_total) positive
         Nz = _np.maximum(Nz, M * g_const * 0.5)  # MATLAB:OpenLAP.m: clamp
         ay_max_iter = grip_comb * mu_y_base * Nz / M  # MATLAB:OpenLAP.m: sens? simplified but includes grip
         # Include sens_y effect approx: ay_max = 1/M*(muy+dmy*(Ny - (Wz-Aero_Df)/4))*(Wz-Aero_Df)  MATLAB:OpenLAP.m:376 etc
@@ -485,9 +519,11 @@ def simulate_full(
         bank_d = float(bank_deg[idx])
         incl_d = float(incl_arr[idx])
         grip = float(grip_arr[idx]) * factor_grip_veh  # MATLAB:OpenLAP.m:667
-        Wz = M * g_const * _cosd(bank_d) * _cosd(incl_d)  # MATLAB:OpenLAP.m:678
-        Aero_Df = 0.5 * rho * factor_Cl * Cl * A * speed * speed  # MATLAB:OpenLAP.m:469 Fz_aero
-        Nz_local = Wz - Aero_Df
+        # WA.6 unified aero sign — MATLAB:OpenLAP.m:468-470
+        Fz_mass = -M * g_const * _cosd(bank_d) * _cosd(incl_d)  # MATLAB:OpenLAP.m:468 Fz_mass negative
+        Fz_aero = 0.5 * rho * factor_Cl * Cl * A * speed * speed  # MATLAB:OpenLAP.m:469 Fz_aero negative
+        Fz_total = Fz_mass + Fz_aero  # MATLAB:OpenLAP.m:470 Fz_total
+        Nz_local = -(Fz_total)  # MATLAB:OpenLAP.m: Nz=-(Fz_total)
         if Nz_local < M * g_const * 0.5:
             Nz_local = M * g_const * 0.5
         # tyre sens
@@ -506,10 +542,12 @@ def simulate_full(
     def _ax_tyre_at(speed: float, idx: int, mode: int = 1) -> float:  # MATLAB:OpenLAP.m:273 ax_tyre_max_acc / 376
         bank_d = float(bank_deg[idx])
         incl_d = float(incl_arr[idx])
-        # Aero
-        Aero_Df = 0.5 * rho * factor_Cl * Cl * A * speed * speed  # MATLAB:OpenLAP.m:469
-        Wz = M * g_const * _cosd(bank_d) * _cosd(incl_d)  # MATLAB:OpenLAP.m:675 Wz
-        Wd = (factor_drive * Wz + (-factor_aero * Aero_Df)) / max(driven_wheels, 1)  # MATLAB:OpenLAP.m:228 Wd
+        # WA.6 unified aero sign — MATLAB:OpenLAP.m:468-470
+        Fz_mass = -M * g_const * _cosd(bank_d) * _cosd(incl_d)  # MATLAB:OpenLAP.m:468 Fz_mass negative
+        Fz_aero = 0.5 * rho * factor_Cl * Cl * A * speed * speed  # MATLAB:OpenLAP.m:469 Fz_aero negative
+        Fz_total = Fz_mass + Fz_aero  # MATLAB:OpenLAP.m:470 Fz_total
+        Nz = -(Fz_total)  # MATLAB:OpenLAP.m: Nz=-(Fz_total) positive
+        Wd = -(factor_drive * Fz_mass + factor_aero * Fz_aero) / max(driven_wheels, 1)  # MATLAB:OpenLAP.m:228 Wd unified
         grip = float(grip_arr[idx]) * factor_grip_veh
         dmx = grip * sens_x_base  # MATLAB:OpenLAP.m:695 dmx
         mux = grip * mu_x_base  # MATLAB:OpenLAP.m:696 mux
@@ -517,8 +555,6 @@ def simulate_full(
         if mode == 1:  # acceleration, driven wheels  MATLAB:OpenLAP.m:273
             ax_tyre = 1.0 / max(M, 1e-9) * (mux + dmx * (Nx - Wd)) * Wd * driven_wheels  # MATLAB:OpenLAP.m:273
         else:  # deceleration all wheels  MATLAB:OpenLAP.m:376 ax_tyre_max_dec
-            # For decel, Wz - Aero_Df total
-            Nz = Wz - Aero_Df
             ax_tyre = -1.0 / max(M, 1e-9) * (mux + dmx * (Nx - Nz / 4.0)) * Nz  # MATLAB:OpenLAP.m:376
         return float(ax_tyre)
 
@@ -527,8 +563,7 @@ def simulate_full(
         fx = float(_np.interp(float(speed), veh_vehicle_speed, veh_fx_engine, left=float(veh_fx_engine[0]), right=0.0))  # MATLAB:OpenLAP.m:276 wheel_torque/Rt
         # incorporate factor_power already in build? veh.factor_power multiplied? In build we used factor? Ensure includes factor_power
         # In drag, torque_curve already factor_power scaled; our veh_fx_engine already includes factor_power via wheel_torque*? Actually wheel_torque includes factor_power via en_torque scaled? In _build, en_torque not scaled but later? We'll scale via factor_power if needed
-        # But veh_fx_engine built from wheel_torque_gear which already includes factor_power? No, we omitted factor_power scaling in cache? Check: wheel_torque_gear = en_torque*rp*rg*rf*np*ng*nf without factor_power. So need factor.
-        fx = fx * factor_grip_veh * 0 + fx  # placeholder keep deterministic; actual factor_power separate
+        # WA.6: unified aero sign, factor_power scaling only (dead fx*0 removed)
         # Apply factor_power scaling to engine
         fx = fx * float(getattr(veh, "factor_power", getattr(veh, "engine_power_factor", 1.0)))  # MATLAB:OpenVEHICLE.m:92 factor_power ~1
         drag = 0.5 * rho * factor_Cd * Cd * A * speed * speed  # MATLAB:OpenLAP.m:224 Aero_Dr negative
@@ -541,8 +576,13 @@ def simulate_full(
         # To keep deterministic, compute ax_power = fx / M
         return float(fx / max(M, 1e-9))
 
-    # iterative passes 6 — MATLAB:OpenLAP.m:327 for i=1:N apex loops, but spec says 前後6反復維持
-    for _iter in range(6):  # MATLAB:OpenLAP.m:327 for i=1:N and forward/backward 6 iterations spec
+    # WA.4 converged envelope (tol loop) — MATLAB:OpenLAP.m:327 forward/backward converged
+    # Deterministic while max_delta>1e-6 and it<20, log iters
+    _envelope_iters = 0
+    _iter = 0
+    _max_delta = float("inf")  # WA.4 max_delta
+    while _max_delta > 1e-6 and _iter < 20:  # MATLAB:OpenLAP.m:327 converged envelope
+        v_prev_iter = v.copy()  # WA.4 baseline for delta
         # forward MATLAB:OpenLAP.m:362 while 1 forward mode=1
         for i in range(1, n):  # MATLAB:OpenLAP.m forward
             ds = float(s_arr[i] - s_arr[i - 1])  # MATLAB:OpenLAP.m dx(j)
@@ -599,6 +639,9 @@ def simulate_full(
             m = float(v[0] if v[0] < v[-1] else v[-1])  # MATLAB:OpenLAP.m closed handling
             v[0] = m  # MATLAB:OpenLAP.m ensure equal
             v[-1] = m  # MATLAB:OpenLAP.m v0==vN
+        _max_delta = float(_np.max(_np.abs(v - v_prev_iter))) if n > 0 else 0.0  # WA.4 delta
+        _iter += 1  # WA.4 iter
+        _envelope_iters = _iter  # WA.4 log iters deterministic
 
     v = _np.where(_np.isfinite(v), v, 5.0)  # MATLAB:OpenLAP.m clamp finite
     v = _np.maximum(v, 1.0)  # MATLAB:OpenLAP.m minimum speed
@@ -610,12 +653,10 @@ def simulate_full(
     # time = cumsum(tr.dx./V)  MATLAB:OpenLAP.m:453
     # -------------------------------------------------------------------
     time_arr: _npt.NDArray[_np.float64] = _np.zeros(n, dtype=float)  # MATLAB:OpenLAP.m:450 time
+    eps: float = 1e-12  # WA.3 trapezoidal eps — avoids 1e9 spike, symplectic
     for i in range(1, n):  # MATLAB:OpenLAP.m cumsum
         ds = float(s_arr[i] - s_arr[i - 1])  # MATLAB:OpenLAP.m tr.dx
-        v_avg = (float(v[i]) + float(v[i - 1])) * 0.5  # trapezoidal
-        if v_avg < 1e-9:
-            v_avg = 1e-9
-        dt = ds / v_avg  # MATLAB:OpenLAP.m dx./V
+        dt = 2.0 * ds / (float(v[i]) + float(v[i - 1]) + eps)  # WA.3 trapezoidal no clamp
         time_arr[i] = time_arr[i - 1] + dt  # MATLAB:OpenLAP.m cumsum
     if closed:
         # ensure time starts 0
@@ -723,7 +764,7 @@ def simulate_full(
         ds = float(s_arr[i] - s_arr[i - 1])  # MATLAB:OpenLAP.m tr.dx
         if ds <= 1e-12:
             fuel_arr[i] = cum_fuel
-            energy_arr[i] = cum_fuel * fuel_LHV / 1000.0  # kJ fuel energy  MATLAB:OpenLAP.m:519
+            energy_arr[i] = cum_fuel * fuel_LHV * n_thermal / 1000.0  # MATLAB:OpenLAP.m:520 mech kJ (unified fuel vs energy branch)
             continue
         vi = float(v[i])  # for wheel_torque interp use average? Use current
         wt_interp = float(_np.interp(vi, veh_vehicle_speed, veh_wheel_torque, left=float(veh_wheel_torque[0]), right=float(veh_wheel_torque[-1])))  # MATLAB:OpenLAP.m:497 interp
