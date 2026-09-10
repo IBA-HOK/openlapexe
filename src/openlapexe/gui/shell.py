@@ -860,6 +860,10 @@ class App2(tk.Tk):
             self.btn_clear = self._btn_clear  # type: ignore[attr-defined]
             self.clear_button = self._btn_clear  # type: ignore[attr-defined]
             self.btn_clear_all = self._btn_clear  # type: ignore[attr-defined]
+            self._btn_del = ttk.Button(ctrl, text="削除", command=self._on_waypoint_delete_selected)
+            self._btn_del.pack(side="left", padx=2)
+            self.btn_delete = self._btn_del  # type: ignore[attr-defined]
+            self.delete_button = self._btn_del  # type: ignore[attr-defined]
         except Exception:
             pass
         try:
@@ -883,6 +887,15 @@ class App2(tk.Tk):
             self.treeview = tree  # type: ignore[attr-defined]
             self.waypoint_view = tree  # type: ignore[attr-defined]
             self.waypoint_list = tree  # type: ignore[attr-defined]
+            try:
+                tree.configure(selectmode="extended")
+            except Exception:
+                pass
+            try:
+                tree.bind("<Delete>", lambda e: self._on_waypoint_delete_selected(), add="+")
+                tree.bind("<BackSpace>", lambda e: self._on_waypoint_delete_selected(), add="+")
+            except Exception:
+                pass
         except Exception as e:
             log.debug("waypoint tree setup failed: %s", e)
             return
@@ -1094,6 +1107,78 @@ class App2(tk.Tk):
             self._update_save_button_state()
         except Exception:
             pass
+
+    def _on_waypoint_delete_selected(self, event: object | None = None) -> None:
+        try:
+            tree = getattr(self, "_waypoint_tree", None)
+            if tree is None:
+                return
+            try:
+                sel = list(tree.selection())
+            except Exception:
+                sel = []
+            if not sel:
+                return
+            try:
+                idxs = sorted((int(tree.index(iid)) for iid in sel), reverse=True)
+            except Exception:
+                return
+            oc = getattr(self, "_osm_canvas", None) or getattr(self, "osm_canvas", None)
+            cc = getattr(self, "_creator_osm", None) or getattr(self, "course_creator", None) or getattr(self, "creator", None)
+            for idx in idxs:
+                try:
+                    if oc is not None and hasattr(oc, "delete_point"):
+                        try:
+                            oc.delete_point(int(idx))  # type: ignore[attr-defined]
+                        except Exception:
+                            pass
+                    else:
+                        try:
+                            if hasattr(oc, "points_latlon"):
+                                oc.points_latlon.pop(int(idx))  # type: ignore[attr-defined]
+                            if hasattr(oc, "points_xy") and int(idx) < len(oc.points_xy):
+                                oc.points_xy.pop(int(idx))  # type: ignore[attr-defined]
+                            if hasattr(oc, "points_zone") and int(idx) < len(oc.points_zone):
+                                oc.points_zone.pop(int(idx))  # type: ignore[attr-defined]
+                        except Exception:
+                            pass
+                except Exception:
+                    continue
+            try:
+                if oc is not None:
+                    if hasattr(oc, "_draw_points_only"):
+                        oc._draw_points_only()  # type: ignore[attr-defined]
+                    elif hasattr(oc, "_request_redraw"):
+                        oc._request_redraw()  # type: ignore[attr-defined]
+            except Exception:
+                pass
+            try:
+                self._sync_osm_to_creator()
+            except Exception:
+                try:
+                    if cc is not None and oc is not None and hasattr(cc, "set_points"):
+                        lst = list(getattr(oc, "points_xy", []) or [])
+                        try:
+                            import inspect as _ins3
+                            sig3 = _ins3.signature(getattr(cc, "set_points"))
+                            if "push_undo" in sig3.parameters:
+                                cc.set_points(lst, push_undo=False)  # type: ignore[attr-defined]
+                            else:
+                                cc.set_points(lst)  # type: ignore[attr-defined]
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+            try:
+                self._refresh_waypoint_tree()
+            except Exception:
+                pass
+            try:
+                self._update_save_button_state()
+            except Exception:
+                pass
+        except Exception as e:
+            log.debug("waypoint delete selected failed: %s", e)
 
     def _update_save_button_state(self) -> None:
         try:
@@ -1959,10 +2044,20 @@ class App2(tk.Tk):
             self.button_apply = self.btn_apply_import
             self.btn_confirm = self.btn_apply_import
             self._btn_apply = self.btn_apply_import
-            self.btn_apply_import.pack(side="left", padx=4)
             self.btn_preview_import = ttk.Button(ctrl, text="プレビュー", command=self._preview_import)
             try:
                 self.btn_preview_import.pack(side="left", padx=4)
+            except Exception:
+                pass
+            self.btn_show_on_map = ttk.Button(ctrl, text="地図に参照表示", command=self._show_import_on_map)
+            self.show_on_map_button = self.btn_show_on_map
+            try:
+                self.btn_show_on_map.pack(side="left", padx=4)
+            except Exception:
+                pass
+            self.btn_clear_ref = ttk.Button(ctrl, text="参照クリア", command=self._clear_import_reference)
+            try:
+                self.btn_clear_ref.pack(side="left", padx=4)
             except Exception:
                 pass
         except Exception:
@@ -2530,6 +2625,76 @@ class App2(tk.Tk):
                 iv._on_preview()  # type: ignore[attr-defined]
         except Exception:
             pass
+
+    def _show_import_on_map(self) -> None:
+        try:
+            iv = getattr(self, "_import_view", None) or getattr(self, "import_view", None)
+            oc = getattr(self, "_osm_canvas", None) or getattr(self, "osm_canvas", None)
+            if iv is None or oc is None:
+                try:
+                    messagebox.showwarning("警告", "取込または地図ビューが未初期化です", parent=self)
+                except Exception:
+                    pass
+                return
+            try:
+                sel = iv.get_selected_candidates() if hasattr(iv, "get_selected_candidates") else []
+            except Exception:
+                sel = []
+            if not sel:
+                try:
+                    sel = list(getattr(iv, "_candidates", []) or [])
+                except Exception:
+                    sel = []
+            if not sel:
+                try:
+                    messagebox.showwarning("警告", "候補を選択してください(Ctrl+Aで全選択可)", parent=self)
+                except Exception:
+                    pass
+                return
+            try:
+                n = oc.set_reference_overlay(sel)  # type: ignore[attr-defined]
+            except Exception as e:
+                try:
+                    messagebox.showerror("エラー", str(e), parent=self)
+                except Exception:
+                    pass
+                return
+            try:
+                if hasattr(oc, "fit_reference_overlay"):
+                    oc.fit_reference_overlay()  # type: ignore[attr-defined]
+            except Exception:
+                pass
+            try:
+                cn = getattr(self, "create_notebook", None) or getattr(self, "_create_notebook", None)
+                tab_osm = getattr(self, "tab_osm", None)
+                if cn is not None and tab_osm is not None:
+                    try:
+                        cn.select(tab_osm)
+                    except Exception:
+                        try:
+                            cn.select(0)
+                        except Exception:
+                            pass
+            except Exception:
+                pass
+            try:
+                self.set_status(f"参照表示 {int(n)}件 → 地図上をクリックしてなぞって作成")
+            except Exception:
+                pass
+        except Exception as e:
+            log.debug("show import on map failed: %s", e)
+
+    def _clear_import_reference(self) -> None:
+        try:
+            oc = getattr(self, "_osm_canvas", None) or getattr(self, "osm_canvas", None)
+            if oc is not None and hasattr(oc, "clear_reference_overlay"):
+                oc.clear_reference_overlay()  # type: ignore[attr-defined]
+            try:
+                self.set_status("参照クリア")
+            except Exception:
+                pass
+        except Exception as e:
+            log.debug("clear import reference failed: %s", e)
 
     def _on_save_track(self) -> None:
         try:

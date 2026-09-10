@@ -216,6 +216,7 @@ class OSMCanvas(tk.Canvas):
         self._photos: list[dict] = []
         self._photo_seq = 0
         self._placing_photo_id: int | None = None
+        self._reference_overlays: list[list[tuple[float, float]]] = []  # each element is list of (lat,lon)
         self._last_click_on_photo: bool = False
         # explicit interact mode (S-mode-switch) - trace|place|edit, default trace
         self._interact_mode: str = "trace"
@@ -309,6 +310,16 @@ class OSMCanvas(tk.Canvas):
         self.bind("<ButtonRelease-2>", self._on_release)
         self.bind("<ButtonPress-3>", self._on_press)
         self.bind("<ButtonRelease-3>", self._on_release)
+        try:
+            self.bind("<Button-3>", self._on_right_click_delete, add="+")
+        except Exception:
+            pass
+        try:
+            self.bind("<Delete>", self._on_delete_key, add="+")
+            self.bind("<BackSpace>", self._on_delete_key, add="+")
+            self.bind("<KeyPress-Delete>", self._on_delete_key, add="+")
+        except Exception:
+            pass
         self.bind("<MouseWheel>", self._on_wheel)
         self.bind("<Button-4>", self._on_button4)
         self.bind("<Button-5>", self._on_button5)
@@ -540,6 +551,109 @@ class OSMCanvas(tk.Canvas):
                 except Exception:
                     pass
         return n
+
+    def delete_point(self, idx: int) -> bool:
+        try:
+            i = int(idx)
+        except Exception:
+            return False
+        try:
+            if 0 <= i < len(self.points_latlon):
+                self.points_latlon.pop(i)
+                try:
+                    if 0 <= i < len(self.points_xy):
+                        self.points_xy.pop(i)
+                except Exception:
+                    pass
+                try:
+                    if 0 <= i < len(self.points_zone):
+                        self.points_zone.pop(i)
+                except Exception:
+                    pass
+                try:
+                    self._draw_points_only()
+                except Exception:
+                    try:
+                        self._request_redraw()
+                    except Exception:
+                        pass
+                return True
+        except Exception:
+            pass
+        return False
+
+    def delete_nearest_point(self, px: int, py: int) -> bool:
+        try:
+            best = None
+            best_d = float("inf")
+            for idx, (lat, lon) in enumerate(list(self.points_latlon)):
+                try:
+                    qx, qy = self._latlon_to_pixel(float(lat), float(lon))
+                    d = math.hypot(float(qx) - float(px), float(qy) - float(py))
+                    if d < best_d:
+                        best_d = d
+                        best = idx
+                except Exception:
+                    continue
+            try:
+                r = _hit_radius(int(self._zoom))
+            except Exception:
+                r = 10.0
+            if best is not None and best_d <= float(r) + 5.0:
+                return self.delete_point(int(best))
+        except Exception:
+            pass
+        return False
+
+    def clear_points(self) -> None:
+        try:
+            self.points_latlon.clear()
+        except Exception:
+            pass
+        try:
+            self.points_xy.clear()
+        except Exception:
+            pass
+        try:
+            self.points_zone.clear()
+        except Exception:
+            pass
+        try:
+            self._draw_points_only()
+        except Exception:
+            try:
+                self._request_redraw()
+            except Exception:
+                pass
+
+    def _on_right_click_delete(self, event: object = None) -> str | None:
+        try:
+            ex = int(getattr(event, "x", -9999))
+            ey = int(getattr(event, "y", -9999))
+        except Exception:
+            return None
+        try:
+            if self.delete_nearest_point(ex, ey):
+                return "break"
+        except Exception:
+            pass
+        return None
+
+    def _on_delete_key(self, event: object = None) -> str | None:
+        try:
+            if getattr(self, "_dragging_idx", None) is not None:
+                try:
+                    if self.delete_point(int(self._dragging_idx)):
+                        self._dragging_idx = None
+                        return "break"
+                except Exception:
+                    pass
+            if self.points_latlon:
+                if self.delete_point(len(self.points_latlon) - 1):
+                    return "break"
+        except Exception:
+            pass
+        return None
 
     # -- photo helpers ---------------------------------------------------
     def get_photo_bbox(self, pid: int) -> tuple[float, float, float, float] | None:
@@ -1662,6 +1776,7 @@ class OSMCanvas(tk.Canvas):
             if not already and len(self._inflight) < MAX_PENDING_FETCH:
                 self._fetch_tile_async(z, x, y)
         self._draw_photos()
+        self._draw_reference_overlay()
         self._draw_points()
         self._draw_attribution()
         self._draw_status(n_hit, n_vis)
@@ -1880,6 +1995,365 @@ class OSMCanvas(tk.Canvas):
                     pass
             except Exception:
                 pass
+
+    def _plane_xy_to_latlon_offset(
+        self,
+        points_xy: object,
+        x0: float,
+        y0: float,
+        mean_x: float,
+        mean_y: float,
+        zone: int,
+    ) -> list[tuple[float, float]]:
+        out: list[tuple[float, float]] = []
+        try:
+            seq: object = points_xy  # type: ignore
+            pts: list[object] = []
+            try:
+                import numpy as _np  # type: ignore
+
+                if isinstance(seq, _np.ndarray):
+                    if seq.ndim == 2 and seq.shape[1] >= 2:
+                        for i in range(int(seq.shape[0])):
+                            try:
+                                pts.append((float(seq[i, 0]), float(seq[i, 1])))
+                            except Exception:
+                                continue
+                    elif seq.ndim == 1 and seq.size % 2 == 0:
+                        arr = seq.reshape(-1, 2)
+                        for i in range(int(arr.shape[0])):
+                            try:
+                                pts.append((float(arr[i, 0]), float(arr[i, 1])))
+                            except Exception:
+                                continue
+                    else:
+                        pts = list(seq)
+                else:
+                    pts = list(seq)  # type: ignore[arg-type]
+            except Exception:
+                try:
+                    pts = list(seq)  # type: ignore[arg-type]
+                except Exception:
+                    return out
+            for p in pts:
+                try:
+                    if isinstance(p, (list, tuple)) and len(p) >= 2:
+                        x = float(p[0]); y = float(p[1])
+                    else:
+                        x = float(p[0]); y = float(p[1])  # type: ignore
+                    lat, lon = plane_to_wgs84(float(x0) + (float(x) - float(mean_x)), float(y0) + (float(y) - float(mean_y)), int(zone))
+                    try:
+                        import numpy as _np2  # type: ignore
+                        if isinstance(lat, _np2.ndarray):
+                            lat = float(lat.flat[0])
+                        if isinstance(lon, _np2.ndarray):
+                            lon = float(lon.flat[0])
+                    except Exception:
+                        pass
+                    out.append((float(lat), float(lon)))
+                except Exception:
+                    continue
+        except Exception:
+            pass
+        return out
+
+    def set_reference_overlay(self, candidates: list[object] | None) -> int:
+        try:
+            self._reference_overlays = []
+        except Exception:
+            self._reference_overlays = []  # type: ignore
+        if candidates is None:
+            try:
+                self._request_redraw()
+            except Exception:
+                try:
+                    self._redraw()
+                except Exception:
+                    pass
+            return 0
+        try:
+            cand_list = list(candidates)  # type: ignore[arg-type]
+        except Exception:
+            cand_list = []
+
+        x0: float | None = None
+        y0: float | None = None
+        zone: int | None = None
+        n_added = 0
+        for cand in cand_list:
+            try:
+                pts_lonlat: object | None = None
+                pts_xy: object | None = None
+                if isinstance(cand, dict):
+                    if "points_lonlat" in cand and cand["points_lonlat"] is not None:
+                        pts_lonlat = cand["points_lonlat"]
+                    if "points_xy" in cand and cand["points_xy"] is not None:
+                        pts_xy = cand["points_xy"]
+                else:
+                    if hasattr(cand, "points_lonlat"):
+                        try:
+                            v = getattr(cand, "points_lonlat")
+                            if v is not None:
+                                pts_lonlat = v
+                        except Exception:
+                            pts_lonlat = None
+                    if hasattr(cand, "points_xy"):
+                        try:
+                            v = getattr(cand, "points_xy")
+                            if v is not None:
+                                pts_xy = v
+                        except Exception:
+                            pts_xy = None
+
+                poly: list[tuple[float, float]] | None = None
+                if pts_lonlat is not None:
+                    try:
+
+                        out: list[tuple[float, float]] = []
+
+                        try:
+                            import numpy as _np  # type: ignore
+
+                            if isinstance(pts_lonlat, _np.ndarray):
+                                arr = _np.asarray(pts_lonlat, dtype=float)
+                                if arr.ndim == 2 and arr.shape[1] >= 2:
+                                    for i in range(int(arr.shape[0])):
+                                        try:
+                                            lon = float(arr[i, 0]); lat = float(arr[i, 1])
+                                            out.append((float(lat), float(lon)))
+                                        except Exception:
+                                            continue
+                                elif arr.ndim == 1 and arr.size % 2 == 0:
+                                    arr2 = arr.reshape(-1, 2)
+                                    for i in range(int(arr2.shape[0])):
+                                        try:
+                                            lon = float(arr2[i, 0]); lat = float(arr2[i, 1])
+                                            out.append((float(lat), float(lon)))
+                                        except Exception:
+                                            continue
+                                else:
+                                    raise ValueError("fallback")
+                            else:
+                                raise ValueError("not ndarray")
+                        except Exception:
+                            seq = list(pts_lonlat)  # type: ignore[arg-type]
+                            out = []
+                            for p in seq:
+                                try:
+
+                                    if isinstance(p, (list, tuple)) and len(p) >= 2:
+                                        lon = float(p[0]); lat = float(p[1])
+                                        out.append((float(lat), float(lon)))
+                                    else:
+                                        continue
+                                except Exception:
+                                    continue
+                        if len(out) >= 2:
+                            poly = out
+                        elif len(out) == 1:
+                            poly = out
+                        else:
+                            poly = None
+                    except Exception:
+                        poly = None
+
+                if poly is None and pts_xy is not None:
+                    try:
+
+                        if x0 is None or y0 is None or zone is None:
+                            try:
+                                _x0, _y0, _z = wgs84_to_plane(float(self.center_lat), float(self.center_lon))
+
+                                try:
+                                    import numpy as _np3  # type: ignore
+                                    if isinstance(_x0, _np3.ndarray):
+                                        _x0 = float(_x0.flat[0])
+                                    if isinstance(_y0, _np3.ndarray):
+                                        _y0 = float(_y0.flat[0])
+                                    if isinstance(_z, _np3.ndarray):
+                                        _z = int(_z.flat[0])
+                                except Exception:
+                                    pass
+                                x0 = float(_x0); y0 = float(_y0); zone = int(_z)
+                            except Exception:
+                                continue
+
+                        try:
+                            import numpy as _np4  # type: ignore
+
+                            if isinstance(pts_xy, _np4.ndarray):
+                                arr = _np4.asarray(pts_xy, dtype=float)
+                                if arr.ndim == 2 and arr.shape[1] >= 2:
+                                    mean_x = float(_np4.mean(arr[:, 0]))
+                                    mean_y = float(_np4.mean(arr[:, 1]))
+                                elif arr.ndim == 1 and arr.size % 2 == 0:
+                                    arr2 = arr.reshape(-1, 2)
+                                    mean_x = float(_np4.mean(arr2[:, 0]))
+                                    mean_y = float(_np4.mean(arr2[:, 1]))
+                                else:
+                                    pts_list = list(arr.flat)
+                                    mean_x = 0.0; mean_y = 0.0
+                            else:
+                                seq_xy = list(pts_xy)  # type: ignore[arg-type]
+                                xs: list[float] = []; ys: list[float] = []
+                                for p in seq_xy:
+                                    try:
+                                        if isinstance(p, (list, tuple)) and len(p) >= 2:
+                                            xs.append(float(p[0])); ys.append(float(p[1]))
+                                    except Exception:
+                                        continue
+                                if xs and ys:
+                                    mean_x = float(sum(xs) / len(xs))
+                                    mean_y = float(sum(ys) / len(ys))
+                                else:
+                                    mean_x = 0.0; mean_y = 0.0
+                        except Exception:
+                            mean_x = 0.0; mean_y = 0.0
+
+                        try:
+                            poly = self._plane_xy_to_latlon_offset(pts_xy, float(x0), float(y0), float(mean_x), float(mean_y), int(zone))
+                        except Exception:
+                            poly = None
+                        if poly is not None and len(poly) < 2:
+                            pass
+                        if poly is not None and len(poly) == 0:
+                            poly = None
+                    except Exception:
+                        poly = None
+                if poly is not None and len(poly) >= 1:
+                    try:
+
+                        filt: list[tuple[float, float]] = []
+                        for lat, lon in poly:
+                            try:
+                                filt.append((float(lat), float(lon)))
+                            except Exception:
+                                continue
+                        if len(filt) >= 1:
+                            self._reference_overlays.append(filt)
+                            n_added += 1
+                    except Exception:
+                        pass
+            except Exception:
+                continue
+        try:
+            self._request_redraw()
+        except Exception:
+            try:
+                self._redraw()
+            except Exception:
+                pass
+        return int(n_added)
+
+    def clear_reference_overlay(self) -> None:
+        try:
+            self._reference_overlays = []
+        except Exception:
+            self._reference_overlays = []  # type: ignore
+        try:
+            self._request_redraw()
+        except Exception:
+            try:
+                self._redraw()
+            except Exception:
+                pass
+
+    def _draw_reference_overlay(self) -> None:
+        try:
+            overlays = getattr(self, "_reference_overlays", None)
+            if not overlays:
+                return
+            for poly in list(overlays):
+                try:
+                    if poly is None or len(poly) < 2:
+                        continue
+                    coords: list[float] = []
+                    for lat, lon in poly:
+                        try:
+                            px, py = self._latlon_to_pixel(float(lat), float(lon))
+                            coords.extend([float(px), float(py)])
+                        except Exception:
+                            continue
+                    if len(coords) < 4:
+                        continue
+                    try:
+                        self.create_line(*coords, fill="#ff6b6b", width=2, dash=(4, 4), tags=("reference",))
+                    except Exception:
+                        try:
+                            self.create_line(*coords, fill="#ff6b6b", width=2, tags=("reference",))
+                        except Exception:
+                            pass
+                except Exception:
+                    continue
+        except Exception:
+            pass
+
+    def fit_reference_overlay(self) -> None:
+        try:
+            overlays = getattr(self, "_reference_overlays", None)
+            if not overlays:
+                return
+            min_lat = 90.0; max_lat = -90.0
+            min_lon = 180.0; max_lon = -180.0
+            has = False
+            for poly in list(overlays):
+                try:
+                    for lat, lon in poly:
+                        try:
+                            la = float(lat); lo = float(lon)
+                            if la < min_lat: min_lat = la
+                            if la > max_lat: max_lat = la
+                            if lo < min_lon: min_lon = lo
+                            if lo > max_lon: max_lon = lo
+                            has = True
+                        except Exception:
+                            continue
+                except Exception:
+                    continue
+            if not has:
+                return
+            try:
+                center_lat = (float(min_lat) + float(max_lat)) * 0.5
+                center_lon = (float(min_lon) + float(max_lon)) * 0.5
+            except Exception:
+                return
+            lat_span = float(max_lat) - float(min_lat)
+            lon_span = float(max_lon) - float(min_lon)
+            span = max(float(lat_span), float(lon_span))
+            try:
+                if span < 0.01:
+                    z = 16
+                elif span < 0.03:
+                    z = 15
+                elif span < 0.08:
+                    z = 14
+                elif span < 0.15:
+                    z = 13
+                else:
+                    z = 12
+                z = max(12, min(17, int(z)))
+            except Exception:
+                z = 14
+            try:
+                self.set_center(float(center_lat), float(center_lon))
+            except Exception:
+                try:
+                    self.center_lat = float(center_lat)
+                    self.center_lon = float(center_lon)
+                    self._center_xf, self._center_yf = _latlon_to_tile_float(self.center_lat, self.center_lon, self._zoom)
+                except Exception:
+                    pass
+            try:
+                self.set_zoom(int(z))
+            except Exception:
+                try:
+                    self._zoom = int(z)
+                    self._center_xf, self._center_yf = _latlon_to_tile_float(self.center_lat, self.center_lon, self._zoom)
+                    self._request_redraw()
+                except Exception:
+                    pass
+        except Exception:
+            pass
 
     def _draw_status(self, n_hit: int, n_vis: int) -> None:
         try:
