@@ -63,14 +63,15 @@ jobs:
         run: |
           cd dist
           ls -lh
-          # app.spec は name='app' なので app.exe が出来る -> OpenLAPexe.exe にリネーム
-          if [ -f "app.exe" ]; then
+          # app.spec は name='OpenLAPexe' なので OpenLAPexe(.exe) が直接出来る。
+          # 旧 spec (name='app') の成果物が残っていた場合のみ互換リネームする。
+          if [ -f "app.exe" ] && [ ! -f "OpenLAPexe.exe" ]; then
             cp app.exe OpenLAPexe.exe
-            echo "renamed app.exe -> OpenLAPexe.exe"
+            echo "renamed app.exe -> OpenLAPexe.exe (compat)"
           fi
-          if [ -f "app" ]; then
+          if [ -f "app" ] && [ ! -f "OpenLAPexe" ]; then
             cp app OpenLAPexe
-            echo "renamed app -> OpenLAPexe"
+            echo "renamed app -> OpenLAPexe (compat)"
           fi
           ls -lh
         shell: bash

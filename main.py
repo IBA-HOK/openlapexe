@@ -5,7 +5,7 @@
 起動:
   python main.py
   python -m openlapexe.gui.shell
-  dist/app ダブルクリック (PyInstaller onefile, console=False, upx=False)
+   dist/OpenLAPexe ダブルクリック (PyInstaller onefile, console=False, upx=False)
 
 4タブ:
   車両        -> VehicleEditor47 (47項目+Treeview18行+PCHIP Canvas, Save/Reset, Invalid.TEntry, atomic utf-8)

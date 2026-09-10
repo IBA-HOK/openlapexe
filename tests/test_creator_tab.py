@@ -40,9 +40,9 @@ def test_shell_has_5_tabs():
         root = App2()
         root.update_idletasks()
         tabs = root.notebook.tabs()
-        assert len(tabs) == 5, f"notebook.tabs()==5 required got {len(tabs)}"
+        assert len(tabs) == 6, f"notebook.tabs()==6 required got {len(tabs)}"
         texts = [root.notebook.tab(tid, "text") for tid in tabs]
-        assert texts == ["車両", "コース", "OpenDRAG", "シミュレーション", "作成"], f"order broken {texts}"
+        assert texts == ["車両", "コース", "OpenDRAG", "シミュレーション", "作成", "データ"], f"order broken {texts}"
         # selectable
         try:
             root.notebook.select(tabs[4])
@@ -51,6 +51,13 @@ def test_shell_has_5_tabs():
             assert sel == tabs[4]
         except Exception as e:
             pytest.fail(f"作成 tab not selectable: {e}")
+        try:
+            root.notebook.select(tabs[5])
+            root.update_idletasks()
+            sel = root.notebook.select()
+            assert sel == tabs[5]
+        except Exception as e:
+            pytest.fail(f"データ tab not selectable: {e}")
         # child notebook
         assert hasattr(root, "create_notebook") or hasattr(root, "_create_notebook") or hasattr(root, "creator_notebook")
         cn = getattr(root, "create_notebook", None) or getattr(root, "_create_notebook", None) or getattr(root, "creator_notebook", None)
@@ -62,6 +69,13 @@ def test_shell_has_5_tabs():
         assert hasattr(root, "osm_canvas") or hasattr(root, "_osm_canvas")
         assert hasattr(root, "import_view") or hasattr(root, "_import_view")
         assert hasattr(root, "course_creator") or hasattr(root, "_creator_osm") or hasattr(root, "creator")
+        # data tab
+        assert hasattr(root, "tab_data") or hasattr(root, "data_view") or hasattr(root, "_data_view")
+        assert hasattr(root, "data_view") or hasattr(root, "_data_view")
+        dv = getattr(root, "data_view", None) or getattr(root, "_data_view", None)
+        assert dv is not None
+        assert hasattr(dv, "vehicle_tree") or hasattr(dv, "tree_vehicles")
+        assert hasattr(dv, "track_tree") or hasattr(dv, "tree_tracks")
         # mode radio shared existence
         assert hasattr(root, "_create_mode_var") or hasattr(root, "mode_var")
         # check placeholder fallback strings exist in source

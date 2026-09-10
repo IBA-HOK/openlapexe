@@ -32,7 +32,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='app',
+    name='OpenLAPexe',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
