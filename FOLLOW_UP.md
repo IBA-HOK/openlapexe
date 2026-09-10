@@ -41,7 +41,7 @@
 ## 6. ビルド/配布
 
 - [ ] `app.spec` のプラットフォーム別最適化: Windows `icon`/`version` リソース、macOS `bundle` 識別子、`--add-data` のパス区切り（`;` vs `:`）自動切替
-- [ ] CIでの `pyinstaller` 成果物検証: `pytest -q` 後に `pyinstaller app.spec` を実行し `dist/app --help` 相当のスモークテスト（ヘッドレスでは `xvfb-run`）
+- [ ] CIでの `pyinstaller` 成果物検証: `pytest -q` 後に `pyinstaller app.spec` を実行し `dist/OpenLAPexe --help` 相当のスモークテスト（ヘッドレスでは `xvfb-run`）
 - [ ] 署名/公証: Windows `signtool`、macOS `codesign`/`notarytool` の手順書を `docs/build.md` に分離
 - [ ] `requirements.txt` / `pyproject.toml` の同期チェック: `pip-compile` 的な依存ロックファイル生成（`numpy` のみだが再現性確保）
 

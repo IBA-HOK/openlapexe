@@ -100,7 +100,7 @@ class App2(tk.Tk):
         self._setup_icon()
         # menu bar
         self._setup_menu()
-        # Notebook 5 tabs (車両/コース/OpenDRAG/シミュレーション/作成)
+        # Notebook 6 tabs (車両/コース/OpenDRAG/シミュレーション/作成/データ)
         self.notebook = ttk.Notebook(self)
         self.tab_vehicle = ttk.Frame(self.notebook)
         self.tab_track = ttk.Frame(self.notebook)
@@ -114,11 +114,16 @@ class App2(tk.Tk):
         # aliases for creator tab discovery
         self.tab_creator = self.tab_create
         self.tab_creation = self.tab_create
+        self.tab_data = ttk.Frame(self.notebook)
+        # aliases for data tab discovery
+        self.tab_datum = self.tab_data
+        self.tab_dataset = self.tab_data
         self.notebook.add(self.tab_vehicle, text="車両")
         self.notebook.add(self.tab_track, text="コース")
         self.notebook.add(self.tab_opendrag, text="OpenDRAG")
         self.notebook.add(self.tab_simulate, text="シミュレーション")
         self.notebook.add(self.tab_create, text="作成")
+        self.notebook.add(self.tab_data, text="データ")
         self.notebook.pack(fill="both", expand=True)
         # tab contents (ttk only, no Entry)
         self._setup_tab_contents()
@@ -361,7 +366,7 @@ class App2(tk.Tk):
             self.vehicle_editor = ve  # type: ignore[attr-defined]
             self._vehicle_editor = ve
             try:
-                ve.on_vehicle_saved = lambda name="": self._refresh_vehicle_combos_all(str(name) if name else None)  # type: ignore[attr-defined]
+                ve.on_vehicle_saved = lambda name="": self._on_vehicle_saved(str(name) if name else None)  # type: ignore[attr-defined]
             except Exception:
                 pass
             integrated += 1
@@ -437,6 +442,90 @@ class App2(tk.Tk):
                 ttk.Label(self.tab_create, text="作成タブ準備中", wraplength=760, justify="left").pack(anchor="w", padx=12, pady=4)
             except Exception:
                 pass
+        try:
+            self._setup_data_tab()
+        except Exception as e:
+            log.debug("data tab setup failed: %s", e)
+            try:
+                ttk.Label(self.tab_data, text="データ", font=self._font_default).pack(anchor="w", padx=12, pady=(12, 4))
+                ttk.Label(self.tab_data, text="データタブ準備中", wraplength=760, justify="left").pack(anchor="w", padx=12, pady=4)
+            except Exception:
+                pass
+
+    def _on_vehicle_saved(self, name: str | None = None) -> None:
+        try:
+            self._refresh_vehicle_combos_all(name)
+        except Exception:
+            pass
+        try:
+            self._refresh_data_tab(select_vehicle=name)
+        except Exception:
+            pass
+
+    def _on_data_changed(self, kind: str = "", name: str | None = None) -> None:
+        k = str(kind or "").lower()
+        try:
+            if k in ("vehicle", "vehicles", "車両"):
+                self._refresh_vehicle_combos_all(name)
+            elif k in ("track", "tracks", "コース"):
+                self._refresh_track_combos_all(name)
+                self._refresh_load_combo()
+            else:
+                self._refresh_vehicle_combos_all(name)
+                self._refresh_track_combos_all(name)
+                self._refresh_load_combo()
+        except Exception:
+            pass
+
+    def _refresh_data_tab(self, select_vehicle: str | None = None, select_track: str | None = None) -> None:
+        for attr in ("data_view", "_data_view"):
+            try:
+                dv = getattr(self, attr, None)
+                if dv is None:
+                    continue
+                if select_vehicle is not None and hasattr(dv, "refresh_vehicles"):
+                    try:
+                        dv.refresh_vehicles(select=select_vehicle)  # type: ignore[attr-defined]
+                    except TypeError:
+                        dv.refresh_vehicles()  # type: ignore[attr-defined]
+                if select_track is not None and hasattr(dv, "refresh_tracks"):
+                    try:
+                        dv.refresh_tracks(select=select_track)  # type: ignore[attr-defined]
+                    except TypeError:
+                        dv.refresh_tracks()  # type: ignore[attr-defined]
+                if select_vehicle is None and select_track is None and hasattr(dv, "refresh_all"):
+                    try:
+                        dv.refresh_all()  # type: ignore[attr-defined]
+                    except Exception:
+                        pass
+            except Exception:
+                continue
+
+    def _setup_data_tab(self) -> None:
+        tab = getattr(self, "tab_data", None)
+        if tab is None:
+            return
+        try:
+            from openlapexe.gui.data_view import DataView as _DataView  # type: ignore
+        except Exception as e:
+            log.debug("DataView import failed: %s", e)
+            raise
+        dv = _DataView(tab)
+        try:
+            dv.pack(fill="both", expand=True, padx=4, pady=4)
+        except Exception:
+            pass
+        self.data_view = dv  # type: ignore[attr-defined]
+        self._data_view = dv
+        self.create_data_view = dv  # type: ignore[attr-defined]
+        try:
+            dv.on_data_changed = lambda kind="", name=None: self._on_data_changed(str(kind), name)  # type: ignore[attr-defined]
+        except Exception:
+            pass
+        try:
+            self.bind("<<NotebookTabChanged>>", lambda _e: self._refresh_data_tab(), add="+")
+        except Exception:
+            pass
 
     def _setup_create_tab(self) -> None:
         tab = getattr(self, "tab_create", None)
@@ -2572,6 +2661,7 @@ class App2(tk.Tk):
                 log.debug("reload verify failed: %s", e)
             self._refresh_track_combos_all(raw)
             self._refresh_load_combo()
+            self._refresh_data_tab(select_track=raw)
             try:
                 self.set_status(f"保存: {path}")
             except Exception:
