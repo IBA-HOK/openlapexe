@@ -115,6 +115,13 @@ class ImportView(ttk.Frame):
         self.tree.configure(yscrollcommand=vsb.set)
         self.tree.pack(side="left", fill="both", expand=True)
         vsb.pack(side="right", fill="y")
+        try:
+            self.tree.bind("<Control-a>", self._on_select_all)
+            self.tree.bind("<Control-A>", self._on_select_all)
+            self.tree.bind("<Command-a>", self._on_select_all)
+            self.tree.bind("<Command-A>", self._on_select_all)
+        except Exception:
+            pass
 
         # -- chart --------------------------------------------------------
         try:
@@ -272,6 +279,19 @@ class ImportView(ttk.Frame):
             except Exception:
                 continue
 
+    def _on_select_all(self, event: object = None) -> str:  # type: ignore[no-untyped-def]
+        try:
+            children = self.tree.get_children()
+            if children:
+                self.tree.selection_set(children)
+                try:
+                    self.tree.focus(children[-1])
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        return "break"
+
     # -- selection helpers -----------------------------------------------
     def _get_selected_candidates(self) -> list[object]:
         sel = []
@@ -363,8 +383,8 @@ class ImportView(ttk.Frame):
     def _on_preview(self) -> None:
         sel = self._get_selected_candidates()
         if not sel:
-            # fallback: preview all if none selected (helps tests)
-            sel = list(self._candidates[:1]) if self._candidates else []
+            # fallback: preview all if none selected (fragmented KML/DXF needs full preview)
+            sel = list(self._candidates) if self._candidates else []
             if not sel:
                 try:
                     messagebox.showwarning("警告", "プレビューする候補を選択してください", parent=self)

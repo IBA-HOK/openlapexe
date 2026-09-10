@@ -20,6 +20,20 @@ import numpy.typing as npt
 
 _log = logging.getLogger("openlapexe.io_dxf")
 
+_IGNORED_DXF_TYPES = frozenset(
+    {
+        "IMAGE",
+        "IMAGEDEF",
+        "IMAGEDEF_REACTOR",
+        "ACAD_IMAGE_DICT",
+        "ACAD_IMAGE_VARS",
+        "ACAD_MLINESTYLE",
+        "MLINESTYLE",
+        "DICTIONARY",
+        "XRECORD",
+    }
+)
+
 
 @dataclass(frozen=True, slots=True)
 class Candidate:
@@ -653,11 +667,16 @@ def parse_dxf(path: str | pathlib.Path) -> list[Candidate]:
                     msg2 = f"{loc} unsupported nested INSERT in block {bname}: {blk_chunk[0][1] if blk_chunk else ''}"
                     warnings.warn(msg2, UserWarning, stacklevel=2)
                     _log.warning(msg2)
+                elif btyp in _IGNORED_DXF_TYPES:
+                    pass
                 else:
                     msg2 = f"{loc} unsupported entity in block {bname}: {btyp}"
                     warnings.warn(msg2, UserWarning, stacklevel=2)
                     _log.warning(msg2)
         else:
+            if typ in _IGNORED_DXF_TYPES:
+                i += 1
+                continue
             loc = f"{p}:{i+1}"
             msg = f"{loc} unsupported DXF entity: {typ}"
             warnings.warn(msg, UserWarning, stacklevel=2)

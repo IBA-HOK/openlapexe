@@ -427,7 +427,7 @@ class VehicleEditor47(ttk.Frame):
             base = self
         frm = ttk.LabelFrame(base, text="トルクカーブ (rpm, Nm) 18点")
         frm.pack(fill="both", expand=True, padx=8, pady=6)
-        self.tree = ttk.Treeview(frm, columns=("rpm", "Nm"), show="headings", height=8)
+        self.tree = ttk.Treeview(frm, columns=("rpm", "Nm"), show="headings", height=8, selectmode="extended")
         self.tree.heading("rpm", text="rpm")
         self.tree.heading("Nm", text="Nm")
         self.tree.column("rpm", width=120, anchor="e")
@@ -496,6 +496,13 @@ class VehicleEditor47(ttk.Frame):
         # commit/cancel if focus leaves tree while editing (safety)
         try:
             self.tree.bind("<Button-1>", self._on_tree_button1, add="+")
+        except Exception:
+            pass
+        try:
+            self.tree.bind("<Control-a>", self._on_tree_select_all)
+            self.tree.bind("<Control-A>", self._on_tree_select_all)
+            self.tree.bind("<Command-a>", self._on_tree_select_all)
+            self.tree.bind("<Command-A>", self._on_tree_select_all)
         except Exception:
             pass
 
@@ -873,6 +880,21 @@ class VehicleEditor47(ttk.Frame):
             self._commit_cell_edit(move_next=None)
         except Exception:
             pass
+
+    def _on_tree_select_all(self, event: tk.Event) -> str | None:  # type: ignore
+        try:
+            if self._cell_editor is not None:
+                return None
+            children = self.tree.get_children()
+            if children:
+                self.tree.selection_set(children)
+                try:
+                    self.tree.focus(children[-1])
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        return "break"
 
     def _start_cell_edit(self, item: str, column: str) -> None:
         try:
