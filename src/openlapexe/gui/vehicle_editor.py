@@ -462,6 +462,42 @@ class VehicleEditor47(ttk.Frame):
             self.tree.bind("<<TreeviewSelect>>", lambda _e: self._redraw_preview())
         except Exception:
             pass
+        # --- inline cell editor (Excel-like) state ---
+        self._cell_editor: tk.Entry | ttk.Entry | None = None  # type: ignore
+        self._cell_editor_item: str | None = None
+        self._cell_editor_column: str | None = None
+        self._cell_editor_old_value: str = ""
+        # bindings for direct editing
+        try:
+            self.tree.bind("<Double-Button-1>", self._on_tree_double_click)
+        except Exception:
+            pass
+        try:
+            self.tree.bind("<Return>", self._on_tree_return)
+            self.tree.bind("<KP_Enter>", self._on_tree_return)
+        except Exception:
+            pass
+        try:
+            self.tree.bind("<F2>", self._on_tree_f2)
+        except Exception:
+            pass
+        try:
+            self.tree.bind("<Tab>", self._on_tree_tab)
+            self.tree.bind("<ISO_Left_Tab>", self._on_tree_tab)
+            self.tree.bind("<Shift-Tab>", self._on_tree_tab)
+        except Exception:
+            pass
+        # Up/Down navigation when not editing is default; still bind to handle editing state cleanly
+        try:
+            self.tree.bind("<Up>", self._on_tree_arrow)
+            self.tree.bind("<Down>", self._on_tree_arrow)
+        except Exception:
+            pass
+        # commit/cancel if focus leaves tree while editing (safety)
+        try:
+            self.tree.bind("<Button-1>", self._on_tree_button1, add="+")
+        except Exception:
+            pass
 
     def _build_vehicle_graphs(self) -> None:
         try:
@@ -623,6 +659,13 @@ class VehicleEditor47(ttk.Frame):
 
     def _on_add(self) -> None:
         try:
+            if getattr(self, "_cell_editor", None) is not None:
+                try:
+                    self._commit_cell_edit(move_next=None)
+                    if getattr(self, "_cell_editor", None) is not None:
+                        return
+                except Exception:
+                    pass
             rpm_s = self._rpm_var.get().strip()
             nm_s = self._nm_var.get().strip()
             try:
@@ -663,6 +706,11 @@ class VehicleEditor47(ttk.Frame):
 
     def _on_delete(self) -> None:
         try:
+            if getattr(self, "_cell_editor", None) is not None:
+                try:
+                    self._cancel_cell_edit()
+                except Exception:
+                    pass
             sel = list(self.tree.selection())
             if not sel:
                 children = list(self.tree.get_children())
@@ -690,6 +738,449 @@ class VehicleEditor47(ttk.Frame):
                 messagebox.showerror("Error", f"{type(e).__name__}: {e}", parent=self)
             except Exception:
                 pass
+
+    def _on_tree_double_click(self, event: tk.Event) -> str | None:  # type: ignore
+        try:
+            if self._cell_editor is not None:
+                try:
+                    self._commit_cell_edit(move_next=None)
+                except Exception:
+                    pass
+                if self._cell_editor is not None:
+                    return "break"
+            row = self.tree.identify_row(event.y)  # type: ignore
+            col = self.tree.identify_column(event.x)  # type: ignore
+            if not row:
+                return None
+            if col == "#0":
+                col = "#1"
+            try:
+                col_idx = int(col[1:]) - 1
+                cols = list(self.tree["columns"])  # type: ignore
+                if 0 <= col_idx < len(cols):
+                    column = str(cols[col_idx])
+                else:
+                    return None
+            except Exception:
+                return None
+            self._start_cell_edit(row, column)
+            return "break"
+        except Exception:
+            return None
+
+    def _on_tree_return(self, event: tk.Event) -> str | None:  # type: ignore
+        try:
+            if self._cell_editor is not None:
+                is_shift = bool(event.state & 0x0001)  # Shift mask
+                move = "shift_enter" if is_shift else "enter"
+                self._commit_cell_edit(move_next=move)
+                return "break"
+            sel = list(self.tree.selection())
+            if not sel:
+                children = list(self.tree.get_children())
+                if not children:
+                    return None
+                sel = [children[0]]
+            item = sel[0]
+            foc = self.tree.focus()
+            col = "rpm"
+            if foc and foc in sel:
+                item = foc
+            # try to detect focused column via selection? default to rpm
+            try:
+                # if a cell was previously edited, reuse its column
+                if self._cell_editor_column in ("rpm", "Nm"):
+                    col = str(self._cell_editor_column)
+            except Exception:
+                pass
+            self._start_cell_edit(item, col)
+            return "break"
+        except Exception:
+            return None
+
+    def _on_tree_f2(self, event: tk.Event) -> str | None:  # type: ignore
+        try:
+            if self._cell_editor is not None:
+                return "break"
+            sel = list(self.tree.selection())
+            if not sel:
+                children = list(self.tree.get_children())
+                if not children:
+                    return None
+                sel = [children[0]]
+            item = sel[0]
+            try:
+                foc = self.tree.focus()
+                if foc and foc in self.tree.get_children():
+                    item = foc
+            except Exception:
+                pass
+            col = "rpm"
+            try:
+                if self._cell_editor_column in ("rpm", "Nm"):
+                    col = str(self._cell_editor_column)
+            except Exception:
+                pass
+            self._start_cell_edit(item, col)
+            return "break"
+        except Exception:
+            return None
+
+    def _on_tree_tab(self, event: tk.Event) -> str | None:  # type: ignore
+        try:
+            if self._cell_editor is not None:
+                is_shift = bool(event.state & 0x0001)
+                move = "shift_tab" if is_shift else "tab"
+                # editor handles Tab; tree Tab should also commit if editor present
+                self._commit_cell_edit(move_next=move)
+                return "break"
+            # when not editing, prevent focus traversal? allow default but break to keep focus on tree
+            return None
+        except Exception:
+            return None
+
+    def _on_tree_arrow(self, event: tk.Event) -> str | None:  # type: ignore
+        try:
+            if self._cell_editor is not None:
+                # let editor handle commit + navigation
+                is_up = event.keysym == "Up"
+                move = "shift_enter" if is_up else "enter"
+                self._commit_cell_edit(move_next=move)
+                return "break"
+            return None
+        except Exception:
+            return None
+
+    def _on_tree_button1(self, event: tk.Event) -> None:  # type: ignore
+        try:
+            if self._cell_editor is None:
+                return
+            # if click is inside editor, ignore
+            # editor is child of tree; check if click target is editor
+            row = self.tree.identify_row(event.y)  # type: ignore
+            col = self.tree.identify_column(event.x)  # type: ignore
+            cur_item = self._cell_editor_item
+            cur_col = self._cell_editor_column
+            if row == cur_item:
+                try:
+                    cols = list(self.tree["columns"])  # type: ignore
+                    col_idx = int(col[1:]) - 1
+                    if 0 <= col_idx < len(cols) and str(cols[col_idx]) == str(cur_col):
+                        return
+                except Exception:
+                    pass
+            # click elsewhere -> commit current
+            self._commit_cell_edit(move_next=None)
+        except Exception:
+            pass
+
+    def _start_cell_edit(self, item: str, column: str) -> None:
+        try:
+            if column not in ("rpm", "Nm"):
+                return
+            if item not in self.tree.get_children():
+                return
+            # cancel existing
+            if self._cell_editor is not None:
+                try:
+                    self._cancel_cell_edit()
+                except Exception:
+                    pass
+            self.tree.selection_set(item)
+            self.tree.focus(item)
+            try:
+                self.tree.see(item)
+                self.update_idletasks()
+            except Exception:
+                pass
+            bbox = self.tree.bbox(item, column)  # type: ignore
+            if not bbox:
+                try:
+                    self.tree.see(item)
+                    self.update_idletasks()
+                    bbox = self.tree.bbox(item, column)  # type: ignore
+                except Exception:
+                    bbox = ""
+            if not bbox:
+                return
+            try:
+                x, y, w, h = bbox  # type: ignore
+            except Exception:
+                return
+            if w < 10:
+                w = 80
+            if h < 10:
+                h = 20
+            old_val = ""
+            try:
+                old_val = str(self.tree.set(item, column))  # type: ignore
+            except Exception:
+                old_val = ""
+            self._cell_editor_item = item
+            self._cell_editor_column = column
+            self._cell_editor_old_value = old_val
+            # use tk.Entry for reliable bg handling; parent is tree
+            ed = tk.Entry(self.tree, width=10, justify="right")  # type: ignore
+            self._cell_editor = ed  # type: ignore
+            ed.insert(0, old_val)
+            ed.selection_range(0, tk.END)
+            ed.icursor(tk.END)
+            try:
+                ed.place(x=x, y=y, width=w, height=h)
+            except Exception:
+                try:
+                    ed.place(x=x, y=y, width=w, height=h)
+                except Exception:
+                    return
+            try:
+                ed.focus_set()
+            except Exception:
+                pass
+            # bind editor keys
+            try:
+                ed.bind("<Return>", lambda e: (self._commit_cell_edit(move_next="enter"), "break")[1])
+                ed.bind("<KP_Enter>", lambda e: (self._commit_cell_edit(move_next="enter"), "break")[1])
+                ed.bind("<Shift-Return>", lambda e: (self._commit_cell_edit(move_next="shift_enter"), "break")[1])
+                ed.bind("<Shift-KP_Enter>", lambda e: (self._commit_cell_edit(move_next="shift_enter"), "break")[1])
+                ed.bind("<Tab>", lambda e: (self._commit_cell_edit(move_next="tab"), "break")[1])
+                ed.bind("<ISO_Left_Tab>", lambda e: (self._commit_cell_edit(move_next="shift_tab"), "break")[1])
+                ed.bind("<Shift-Tab>", lambda e: (self._commit_cell_edit(move_next="shift_tab"), "break")[1])
+                ed.bind("<Escape>", lambda e: (self._cancel_cell_edit(), "break")[1])
+                ed.bind("<FocusOut>", self._on_editor_focus_out)
+                # arrow keys inside editor commit + move
+                ed.bind("<Up>", lambda e: (self._commit_cell_edit(move_next="shift_enter"), "break")[1])
+                ed.bind("<Down>", lambda e: (self._commit_cell_edit(move_next="enter"), "break")[1])
+            except Exception:
+                pass
+        except Exception:
+            try:
+                if self._cell_editor is not None:
+                    self._cancel_cell_edit()
+            except Exception:
+                pass
+
+    def _on_editor_focus_out(self, event: tk.Event) -> str | None:  # type: ignore
+        try:
+            if self._cell_editor is None:
+                return None
+            # delay check to avoid fighting with Tab/Return handlers
+            try:
+                w = event.widget  # type: ignore
+                if w is not self._cell_editor:
+                    return None
+            except Exception:
+                pass
+            # if editor still exists (not already destroyed by commit), commit
+            if self._cell_editor is not None:
+                self._commit_cell_edit(move_next=None)
+            return None
+        except Exception:
+            return None
+
+    def _flash_editor_error(self) -> None:
+        try:
+            ed = self._cell_editor
+            if ed is None:
+                return
+            try:
+                ed.configure(bg="#ffcccc")  # type: ignore
+            except Exception:
+                try:
+                    ed.configure(background="#ffcccc")  # type: ignore
+                except Exception:
+                    pass
+            try:
+                self.after(180, lambda: ed.configure(bg="white") if ed.winfo_exists() else None)  # type: ignore
+            except Exception:
+                pass
+        except Exception:
+            pass
+
+    def _commit_cell_edit(self, move_next: str | None = None) -> str | None:  # type: ignore
+        try:
+            ed = self._cell_editor
+            item = self._cell_editor_item
+            column = self._cell_editor_column
+            if ed is None or item is None or column is None:
+                return None
+            try:
+                txt = str(ed.get()).strip()  # type: ignore
+            except Exception:
+                txt = ""
+            # validation - Excel風: モーダルを出さず赤フラッシュ + エラーラベルで通知
+            try:
+                val = float(txt)
+            except Exception:
+                try:
+                    if hasattr(self, "_error_var"):
+                        self._error_var.set("数値を入力してください")
+                except Exception:
+                    pass
+                self._flash_editor_error()
+                try:
+                    ed.focus_set()  # type: ignore
+                    ed.selection_range(0, tk.END)  # type: ignore
+                except Exception:
+                    pass
+                return "break"
+            if not math.isfinite(val):
+                try:
+                    if hasattr(self, "_error_var"):
+                        self._error_var.set("有限値を入力してください")
+                except Exception:
+                    pass
+                self._flash_editor_error()
+                try:
+                    ed.focus_set()  # type: ignore
+                    ed.selection_range(0, tk.END)  # type: ignore
+                except Exception:
+                    pass
+                return "break"
+            if column == "rpm":
+                if val <= 0:
+                    try:
+                        if hasattr(self, "_error_var"):
+                            self._error_var.set("rpm>0 で入力")
+                    except Exception:
+                        pass
+                    self._flash_editor_error()
+                    try:
+                        ed.focus_set()  # type: ignore
+                        ed.selection_range(0, tk.END)  # type: ignore
+                    except Exception:
+                        pass
+                    return "break"
+            else:
+                if val < 0:
+                    try:
+                        if hasattr(self, "_error_var"):
+                            self._error_var.set("Nm>=0 で入力")
+                    except Exception:
+                        pass
+                    self._flash_editor_error()
+                    try:
+                        ed.focus_set()  # type: ignore
+                        ed.selection_range(0, tk.END)  # type: ignore
+                    except Exception:
+                        pass
+                    return "break"
+            # success: update tree
+            new_txt = str(float(val))
+            # try to preserve integer-like display? keep as str(float)
+            try:
+                self.tree.set(item, column, new_txt)  # type: ignore
+            except Exception:
+                return "break"
+            # destroy editor first
+            try:
+                ed.destroy()  # type: ignore
+            except Exception:
+                pass
+            self._cell_editor = None
+            self._cell_editor_item = None
+            self._cell_editor_column = None
+            self._cell_editor_old_value = ""
+            try:
+                self._validate_all()
+            except Exception:
+                pass
+            try:
+                self._redraw_preview()
+            except Exception:
+                pass
+            try:
+                self._update_vehicle_graphs()
+            except Exception:
+                pass
+            try:
+                if "torque_curve" in self.vars:
+                    n = len(self.tree.get_children())
+                    self.vars["torque_curve"].set(f"{n} points")
+            except Exception:
+                pass
+            try:
+                if hasattr(self, "_error_var"):
+                    self._error_var.set("")
+            except Exception:
+                pass
+            # navigation
+            if move_next is not None:
+                try:
+                    children = list(self.tree.get_children())
+                    if item not in children:
+                        return "break"
+                    idx = children.index(item)
+                    next_item: str | None = None
+                    next_col: str | None = None
+                    if move_next == "tab":
+                        if column == "rpm":
+                            next_item = item
+                            next_col = "Nm"
+                        else:
+                            if idx + 1 < len(children):
+                                next_item = children[idx + 1]
+                                next_col = "rpm"
+                    elif move_next == "shift_tab":
+                        if column == "Nm":
+                            next_item = item
+                            next_col = "rpm"
+                        else:
+                            if idx - 1 >= 0:
+                                next_item = children[idx - 1]
+                                next_col = "Nm"
+                    elif move_next == "enter":
+                        if idx + 1 < len(children):
+                            next_item = children[idx + 1]
+                            next_col = column
+                    elif move_next == "shift_enter":
+                        if idx - 1 >= 0:
+                            next_item = children[idx - 1]
+                            next_col = column
+                    if next_item is not None and next_col is not None:
+                        # schedule to avoid FocusOut double-commit
+                        try:
+                            self.after(10, lambda i=next_item, c=next_col: self._start_cell_edit(i, c))  # type: ignore
+                        except Exception:
+                            self._start_cell_edit(next_item, next_col)
+                    else:
+                        # no next: keep selection
+                        try:
+                            self.tree.selection_set(item)
+                            self.tree.focus(item)
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+            return "break"
+        except Exception as e:
+            try:
+                messagebox.showerror("Error", f"{type(e).__name__}: {e}", parent=self)
+            except Exception:
+                pass
+            return "break"
+
+    def _cancel_cell_edit(self) -> str | None:  # type: ignore
+        try:
+            ed = self._cell_editor
+            if ed is not None:
+                try:
+                    ed.destroy()  # type: ignore
+                except Exception:
+                    pass
+            self._cell_editor = None
+            self._cell_editor_item = None
+            self._cell_editor_column = None
+            self._cell_editor_old_value = ""
+            try:
+                self.tree.focus_set()
+            except Exception:
+                pass
+            return "break"
+        except Exception:
+            self._cell_editor = None
+            self._cell_editor_item = None
+            self._cell_editor_column = None
+            return "break"
 
     def add_torque(self, rpm: float | str, nm: float | str) -> bool:
         try:
