@@ -57,3 +57,22 @@
 - 合計 Δ: `101.17` → `95.81` = **-5.36s (-5.30%)**。D1は0、V1/T1/S1の積算が旧簡易QSS時代の余裕代を解消
 - 旧 `101.17` は `previous_baseline` として保持し、`git log -- data/reference/spa_f1_baseline.txt` で追跡可能。旧 `app.simulate` (101.28s) との差は0.11s (0.11%) で旧許容内
 - 検証: `PYTHONPATH=src pytest tests/test_regression_full.py -v` + `pytest -q` 全体GREEN、`py_compile` OK、encoding utf-8、`scipy`/`matplotlib` 不使用は `tests/test_regression_full.py` が保証
+
+---
+
+## CORRECTED — invalidates -5.36s table (2026-09-12)
+
+**Invalidation:** The table above claiming `101.17 → 95.81 = -5.36s` via V1/T1/S1 is **INVALID** after solver audit fixes. The `95.80591391534297` value was a **previous_buggy** baseline (kept as `previous_buggy` for history) measured from a solver that simplified apex physics.
+
+**Root causes fixed (solver verified 101.1788s, target 101.17±0.5% 100.66-101.68, vmax 299 km/h, sectors [33.12,34.16,33.91]):**
+
+1. **Quartic `a*v^4+b*v^2+c=0` min-root** — replaces `v=sqrt(ay_max/|curv|)` 8-iter. `a=-sign(r)*dmy/4*D^2`, `b=sign(r)*(muy*D+(dmy/4)*(Ny*4)*D-2*(dmy/4)*Wz*D)-M*r`, `c=sign(r)*(muy*Wz+(dmy/4)*(Ny*4)*Wz-(dmy/4)*Wz^2)+Wy` with `Wz=M*g*cosd(bank)*cosd(incl)`, `Wy=-M*g*sind(bank)`, `D=-0.5*rho*factor_Cl*Cl*A`. Positive `u=v^2` roots solved `(-b±sqrt(b²-4ac))/(2a)`, smallest positive kept, fallback to `v_limit`.
+2. **Wd/ellipse separation** — `Wd=(factor_drive*Wz - factor_aero*Aero_Df)/driven_wheels` unified, ellipse `sqrt(1-(ay/ay_max)^2)` applied **only to `ax_tyre`**, engine `ax_power=fx_engine/M` kept unscaled; `ax_com=min(ax_tyre_scaled, ax_power)`.
+3. **`ax_drag` in envelope** — `ax_drag=(Aero_Dr+Roll_Dr+Wx)/M` with `Wx=M*g*sind(incl)`, `Aero_Dr=0.5*rho*factor_Cd*Cd*A*v²`, `Roll_Dr=Cr*abs(Fz_total)`. Envelope uses `ax_avail=ax_com+ax_drag` (clamped `>=ax_drag`), not tyre alone.
+4. **Power-drag `v_limit`** — `v_limit` from `fx_engine(v)` vs `drag(v)` crossover (`net=fx - drag` zero interpolation), clamped 5..`v_max`, feeds `v_max_arr` quartic fallback and phase cap.
+
+**New baseline (2026-09-12):** `data/reference/spa_f1_full_baseline.txt = 101.17879935516551` (simulate_full f1/spa 50Hz, freq respected step=100/freq, 50Hz→2m, 100Hz→1m). Tolerance stays **±0.5%** → `[100.66,101.68]`. `data/reference/spa_f1_baseline.txt = 101.17` (shim) remains.
+
+**Preserved:** `previous_buggy = 95.80591391534297` (old V1/T1/S1 table base). Any reference to `95.81` as canonical is deprecated; contract tests in `tests/test_contract_regression.py` enforce `95.8059` outside `±0.5%` of `101.17`.
+
+**Verification:** `PYTHONPATH=src python -m openlapexe --vehicle f1 --track spa --headless --json` → `laptime 101.178799` in `[100.66,101.68]`; `PYTHONPATH=src pytest -q` → 0 failures.

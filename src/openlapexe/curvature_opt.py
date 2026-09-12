@@ -42,30 +42,20 @@ def _arc_ds(center: npt.NDArray[np.float64], closed: bool) -> npt.NDArray[np.flo
     diffs = np.diff(center, axis=0)
     seg = np.hypot(diffs[:, 0], diffs[:, 1])  # (n-1,)
     if closed:
-        # wrap segment last->first
         closing = float(np.hypot(center[0, 0] - center[-1, 0], center[0, 1] - center[-1, 1]))
         seg_full = np.empty(n, dtype=np.float64)
         seg_full[: n - 1] = seg
         seg_full[n - 1] = closing
-        # ds per point = 0.5*(prev_seg + next_seg)
-        ds = np.empty(n, dtype=np.float64)
-        for i in range(n):
-            prev_seg = seg_full[(i - 1) % n]
-            next_seg = seg_full[i]
-            ds[i] = 0.5 * (prev_seg + next_seg)
-        # avoid zero
+        ds = 0.5 * (np.roll(seg_full, 1) + seg_full)
         ds = np.maximum(ds, 1e-12)
         return ds
     else:
-        ds = np.empty(n, dtype=np.float64)
         if n == 2:
-            ds[0] = float(seg[0])
-            ds[1] = float(seg[0])
-            return ds
+            return np.array([float(seg[0]), float(seg[0])], dtype=np.float64)
+        ds = np.empty(n, dtype=np.float64)
         ds[0] = float(seg[0])
         ds[n - 1] = float(seg[-1])
-        for i in range(1, n - 1):
-            ds[i] = 0.5 * (float(seg[i - 1]) + float(seg[i]))
+        ds[1:-1] = 0.5 * (seg[:-1] + seg[1:])
         ds = np.maximum(ds, 1e-12)
         return ds
 
@@ -78,29 +68,31 @@ def _curvature_profile(center: npt.NDArray[np.float64], closed: bool) -> npt.NDA
     x = center[:, 0]
     y = center[:, 1]
     eps = 1e-12
-    for i in range(n):
-        if not closed and (i == 0 or i == n - 1):
-            kappa[i] = 0.0
-            continue
-        im1 = (i - 1) % n if closed else i - 1
-        ip1 = (i + 1) % n if closed else i + 1
-        # first derivative central diff (unit index step)
-        xp = 0.5 * (float(x[ip1]) - float(x[im1]))
-        yp = 0.5 * (float(y[ip1]) - float(y[im1]))
-        # second derivative
-        xpp = float(x[ip1]) - 2.0 * float(x[i]) + float(x[im1])
-        ypp = float(y[ip1]) - 2.0 * float(y[i]) + float(y[im1])
-        p_norm = float(np.hypot(xp, yp))
+    if closed:
+        xp = 0.5 * (np.roll(x, -1) - np.roll(x, 1))
+        yp = 0.5 * (np.roll(y, -1) - np.roll(y, 1))
+        xpp = np.roll(x, -1) - 2.0 * x + np.roll(x, 1)
+        ypp = np.roll(y, -1) - 2.0 * y + np.roll(y, 1)
+        p_norm = np.hypot(xp, yp)
         denom = p_norm ** 3 + eps
-        cross = abs(xp * ypp - yp * xpp)
+        cross = np.abs(xp * ypp - yp * xpp)
         k = cross / denom
-        # guard finite
-        if not np.isfinite(k):
-            k = 0.0
-        kappa[i] = float(k)
-    # also guard overall finite
-    kappa[~np.isfinite(kappa)] = 0.0
-    return kappa
+        k[~np.isfinite(k)] = 0.0
+        return k
+    else:
+        # open: endpoints 0, interior vectorized
+        xp_mid = 0.5 * (x[2:] - x[:-2])
+        yp_mid = 0.5 * (y[2:] - y[:-2])
+        xpp_mid = x[2:] - 2.0 * x[1:-1] + x[:-2]
+        ypp_mid = y[2:] - 2.0 * y[1:-1] + y[:-2]
+        p_norm_mid = np.hypot(xp_mid, yp_mid)
+        denom_mid = p_norm_mid ** 3 + eps
+        cross_mid = np.abs(xp_mid * ypp_mid - yp_mid * xpp_mid)
+        k_mid = cross_mid / denom_mid
+        k_mid[~np.isfinite(k_mid)] = 0.0
+        kappa[1:-1] = k_mid
+        kappa[~np.isfinite(kappa)] = 0.0
+        return kappa
 
 
 def compute_curvature_profile(
@@ -151,24 +143,22 @@ def _project_constraint(
     radius: npt.NDArray[np.float64],
 ) -> npt.NDArray[np.float64]:
     """制約 |c-mid| ≤ radius へ射影."""
-    n = int(center.shape[0])
     out = center.copy()
-    for i in range(n):
-        r = float(radius[i])
-        if r < 0.0:
-            r = 0.0
-        dx = float(out[i, 0] - mid[i, 0])
-        dy = float(out[i, 1] - mid[i, 1])
-        dist = float(np.hypot(dx, dy))
-        if dist > r:
-            if dist < 1e-12:
-                # arbitrary direction (x+)
-                out[i, 0] = float(mid[i, 0] + r)
-                out[i, 1] = float(mid[i, 1])
-            else:
-                scale = r / dist
-                out[i, 0] = float(mid[i, 0] + dx * scale)
-                out[i, 1] = float(mid[i, 1] + dy * scale)
+    radius_c = np.maximum(np.asarray(radius, dtype=np.float64), 0.0)
+    dx = out[:, 0] - mid[:, 0]
+    dy = out[:, 1] - mid[:, 1]
+    dist = np.hypot(dx, dy)
+    mask = dist > radius_c
+    tiny = mask & (dist < 1e-12)
+    if np.any(tiny):
+        out[tiny, 0] = mid[tiny, 0] + radius_c[tiny]
+        out[tiny, 1] = mid[tiny, 1]
+    regular = mask & (~tiny)
+    if np.any(regular):
+        scale = np.empty_like(dist)
+        scale[regular] = radius_c[regular] / np.maximum(dist[regular], 1e-12)
+        out[regular, 0] = mid[regular, 0] + dx[regular] * scale[regular]
+        out[regular, 1] = mid[regular, 1] + dy[regular] * scale[regular]
     return out
 
 

@@ -1,0 +1,130 @@
+{
+  "Name": "FS125 IAME X30",
+  "Type": "Kart",
+  "M": 150,
+  "df": 0.43,
+  "L": 1.32,
+  "rack": 6,
+  "Cl": -0.35,
+  "Cd": -0.76,
+  "factor_Cl": 1,
+  "factor_Cd": 1,
+  "da": 0.45,
+  "A": 0.5,
+  "rho": 1.225,
+  "br_disc_d": 0.19,
+  "br_pad_h": 0.028,
+  "br_pad_mu": 0.45,
+  "br_nop": 2,
+  "br_pist_d": 0.03,
+  "br_mast_d": 0.02,
+  "br_ped_r": 3.5,
+  "factor_grip": 1,
+  "tyre_radius": 0.14,
+  "Cr": -0.01,
+  "mu_x": 1.55,
+  "mu_x_M": 150,
+  "sens_x": 0.00012,
+  "mu_y": 1.55,
+  "mu_y_M": 150,
+  "sens_y": 0.00012,
+  "CF": 450,
+  "CR": 550,
+  "factor_power": 1.0,
+  "n_thermal": 0.32,
+  "fuel_LHV": 47200000,
+  "drive": "RWD",
+  "shift_time": 0.03,
+  "n_primary": 1,
+  "n_final": 0.96,
+  "n_gearbox": 0.98,
+  "ratio_primary": 1,
+  "ratio_final": 4.2,
+  "ratio_gearbox": [
+    1.0
+  ],
+  "torque_curve": [
+    {
+      "rpm": 3000,
+      "torque_nm": 12.0
+    },
+    {
+      "rpm": 4000,
+      "torque_nm": 15.0
+    },
+    {
+      "rpm": 5000,
+      "torque_nm": 18.0
+    },
+    {
+      "rpm": 6000,
+      "torque_nm": 20.0
+    },
+    {
+      "rpm": 7000,
+      "torque_nm": 21.5
+    },
+    {
+      "rpm": 8500,
+      "torque_nm": 23.0
+    },
+    {
+      "rpm": 9500,
+      "torque_nm": 22.5
+    },
+    {
+      "rpm": 10500,
+      "torque_nm": 21.0
+    },
+    {
+      "rpm": 11500,
+      "torque_nm": 18.0
+    },
+    {
+      "rpm": 12000,
+      "torque_nm": 15.5
+    }
+  ],
+  "cog_height_m": 0.24,
+  "mass_kg": 150,
+  "wheelbase_m": 1.32,
+  "cda": 0.38,
+  "weight_dist_front": 0.43,
+  "cl": -0.35,
+  "tire_mu_x": 1.55,
+  "tire_mu_y": 1.55,
+  "engine_power_factor": 1.0,
+  "final_drive": 4.2,
+  "provenance": {
+    "engine": "IAME X30 125cc",
+    "power_ps": 28,
+    "power_kw": 20.6,
+    "power_rpm": 8500,
+    "peak_torque_nm": 23.0,
+    "peak_torque_rpm": 8500,
+    "mass_total_kg": 150,
+    "description": "IAME X30 125cc water-cooled 2-stroke racing kart, total mass incl. driver",
+    "df": 0.43,
+    "L_m": 1.32,
+    "A_m2": 0.5,
+    "cda": 0.38,
+    "Cd": -0.76,
+    "Cl": -0.35,
+    "tyre_radius_m": 0.14,
+    "Cr": -0.01,
+    "mu_x": 1.55,
+    "mu_y": 1.55,
+    "drive": "RWD",
+    "ratio_final": 4.2,
+    "ratio_gearbox": [
+      1.0
+    ],
+    "torque_curve_points": 10,
+    "torque_curve_rpm_range": "3000-12000",
+    "note": "Peak ~23Nm@8500rpm, 20.6kW@8500rpm. Single-ratio direct drive via chain; revs to 12000rpm.",
+    "source": "IAME X30 spec sheet + FS125 racing kart estimate, scaled from OpenLAP F1/GT baseline (cda=abs(Cd)*A=0.38)",
+    "created": "2026-09-12",
+    "creator": "openlapexe Task 5",
+    "license": "GPLv3"
+  }
+}

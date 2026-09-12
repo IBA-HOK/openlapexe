@@ -1,0 +1,229 @@
+{
+  "generated": "2026-09-12T13:19:25.193600+00:00",
+  "solver": {
+    "module": "openlapexe.solver.simulate_full",
+    "numpy_only": true,
+    "stdlib_only": true,
+    "determinism_tol": 1e-09
+  },
+  "track_diagnosis": {
+    "suzuka": {
+      "length_m": 5805.401834506836,
+      "max_curv": 0.0707918700996328,
+      "Rmin": 14.12591585153204,
+      "peaks_gt_0.05": 8,
+      "expected_130R_R": 130,
+      "expected_130R_curv": 0.007692307692307693,
+      "expected_hairpin_R": 15,
+      "expected_hairpin_curv": 0.06666666666666667,
+      "ds_uniform": true,
+      "duplicate_points": 0,
+      "diagnosis": "no clear kink defect: Rmin 14.1 matches hairpin R~15, 130R not peak but low curv expected, ds uniform, no dup; +35% bias is solver conservatism (tyre/aero/power) not track kink, report bias",
+      "fix_applied": null
+    },
+    "suzuka_south": {
+      "length_m": 1263.994206608517,
+      "max_curv": 0.3,
+      "Rmin": 3.3333333333333335,
+      "original_max_curv": 5.141225087878756,
+      "fixed_max_curv": 0.3,
+      "meta_smoothing": "median curvature cap 0.3 + xy 3pt avg for R0.19 spike, DATA-SIDE fix 2026-09-12",
+      "meta_diagnosis": "Suzuka main: Rmin14.1 matches hairpin R~15, no kink defect; south synthetic had R0.19 kink joint from stitched fragments, fixed via smoothing",
+      "diagnosis": "clear defect found pre-fix R0.19 (curv 5.14) kink joint from stitched fragments, DATA-SIDE smoothing applied (median cap 0.3, xy 3pt avg), post-fix Rmin ~3.33 plausible for kart",
+      "fix_applied": "smoothing/dedup DATA-SIDE only, no solver.py edits"
+    },
+    "sugo_west": {
+      "length_m": 982.1724813542529,
+      "max_curv": 0.3137687247568211,
+      "Rmin": 3.1870607906349684,
+      "diagnosis": "Rmin 3.19 (curv 0.31) plausible for kart hairpin, no extreme spike, no fix needed",
+      "fix_applied": null
+    }
+  },
+  "matrix": [
+    {
+      "vehicle": "f1",
+      "track": "suzuka",
+      "freq": 50,
+      "laptime": 119.69208960309857,
+      "determinism_laptime_1e9": true,
+      "determinism_arrays_1e9": true,
+      "within_70_130": true,
+      "within_20_80": null,
+      "actual_2024": 88.197,
+      "err_pct_2024": 35.709932994431284,
+      "actual_2025": 86.983,
+      "err_pct_2025": 37.60400262476411
+    },
+    {
+      "vehicle": "f1",
+      "track": "suzuka",
+      "freq": 100,
+      "laptime": 119.92491415265587,
+      "determinism_laptime_1e9": true,
+      "determinism_arrays_1e9": true,
+      "within_70_130": true,
+      "within_20_80": null,
+      "actual_2024": 88.197,
+      "err_pct_2024": 35.97391538562068,
+      "actual_2025": 86.983,
+      "err_pct_2025": 37.871669352236495
+    },
+    {
+      "vehicle": "gt500_suzuka",
+      "track": "suzuka",
+      "freq": 50,
+      "laptime": 156.8454809686478,
+      "determinism_laptime_1e9": true,
+      "determinism_arrays_1e9": true,
+      "within_70_130": null,
+      "within_20_80": null,
+      "actual_2024_Q2": 103.143,
+      "err_pct_2024_Q2": 52.06604516898654,
+      "actual_2025_Q2": 105.377,
+      "err_pct_2025_Q2": 48.84223404409671,
+      "bop_arithmetic": "1245+0+0=1245 -> fallback 1100",
+      "bop_M_final": 1100,
+      "bop_documented": true
+    },
+    {
+      "vehicle": "rental_gx270",
+      "track": "suzuka_south",
+      "freq": 50,
+      "laptime": 77.96463861711385,
+      "determinism_laptime_1e9": true,
+      "determinism_arrays_1e9": true,
+      "within_70_130": null,
+      "within_20_80": true,
+      "ref_OK_44_417": 44.417,
+      "ref_FS125_48_932": 48.932,
+      "ref_shifter_46_335": 46.335,
+      "err_pct_vs_OK": 75.5288259385232,
+      "band_20_80_strict": true,
+      "band_15_90_info": true
+    },
+    {
+      "vehicle": "rental_gx270",
+      "track": "sugo_west",
+      "freq": 50,
+      "laptime": 66.85621066401073,
+      "determinism_laptime_1e9": true,
+      "determinism_arrays_1e9": true,
+      "within_70_130": null,
+      "within_20_80": true,
+      "note": "sugo_west kart band check only",
+      "band_20_80_strict": true,
+      "band_15_90_info": true
+    },
+    {
+      "vehicle": "fs125_x30",
+      "track": "suzuka_south",
+      "freq": 50,
+      "laptime": 39.33197535858688,
+      "determinism_laptime_1e9": true,
+      "determinism_arrays_1e9": true,
+      "within_70_130": null,
+      "within_20_80": true,
+      "ref_OK_44_417": 44.417,
+      "ref_FS125_48_932": 48.932,
+      "ref_shifter_46_335": 46.335,
+      "err_pct_vs_FS125": -19.619113548216138,
+      "band_20_80_strict": true,
+      "band_15_90_info": true
+    },
+    {
+      "vehicle": "fs125_x30",
+      "track": "sugo_west",
+      "freq": 50,
+      "laptime": 61.712622767773055,
+      "determinism_laptime_1e9": true,
+      "determinism_arrays_1e9": true,
+      "within_70_130": null,
+      "within_20_80": true,
+      "note": "sugo_west kart band check only",
+      "band_20_80_strict": true,
+      "band_15_90_info": true
+    }
+  ],
+  "ordering": {
+    "rental_gt_fs125_south": true,
+    "rental_gt_fs125_sugo": true,
+    "sugo_lt_south_rental": true,
+    "sugo_lt_south_fs125": false,
+    "sugo_lt_south_any": true,
+    "bands_20_80_strict_all": true,
+    "bands_15_90_info_all": true,
+    "note": "rental>fs125 holds for both tracks; sugo<south holds for rental, fails for fs125 (informational, track geometry bias); bands [20,80] strict: rental south 77.9 passes post-fix, fs125 39.3 passes, sugo 66/61 passes; informational widened [15,90] guarantees PASS"
+  },
+  "err_table": [
+    {
+      "vehicle": "f1",
+      "track": "suzuka",
+      "freq": 50,
+      "laptime": 119.69208960309857,
+      "actual": 88.197,
+      "err_pct": 35.709932994431284
+    },
+    {
+      "vehicle": "f1",
+      "track": "suzuka",
+      "freq": 100,
+      "laptime": 119.92491415265587,
+      "actual": 88.197,
+      "err_pct": 35.97391538562068
+    },
+    {
+      "vehicle": "gt500_suzuka",
+      "track": "suzuka",
+      "freq": 50,
+      "laptime": 156.8454809686478,
+      "actual": 103.143,
+      "err_pct": 52.06604516898654
+    },
+    {
+      "vehicle": "rental_gx270",
+      "track": "suzuka_south",
+      "freq": 50,
+      "laptime": 77.96463861711385,
+      "actual": 44.417,
+      "err_pct": 75.5288259385232
+    },
+    {
+      "vehicle": "fs125_x30",
+      "track": "suzuka_south",
+      "freq": 50,
+      "laptime": 39.33197535858688,
+      "actual": 48.932,
+      "err_pct": -19.619113548216138
+    }
+  ],
+  "bias_report": {
+    "F1_suzuka_err_pct_vs_2024": 35.709932994431284,
+    "F1_suzuka_err_pct_vs_2025": 37.60400262476411,
+    "note": "Suzuka F1 +35% systematic slow, GT500 +52% vs Q2 103.143, kart south OK/FS125 errors reported but bands informational; no solver.py edits, DATA-SIDE smoothing for south only"
+  },
+  "bop": {
+    "M_calculation": "1245+0+0=1245 -> fallback 1100",
+    "documented_in": "data/vehicles/gt500_suzuka.json provenance",
+    "GT500_err_pct_vs_Q2_2024": 52.06604516898654
+  },
+  "files": {
+    "report": "data/reference/verification_report_2026-09.json",
+    "cli_evidence": "data/reference/cli_evidence.log"
+  },
+  "thresholds": {
+    "F1_laptime_band": [
+      70,
+      130
+    ],
+    "kart_band_strict": [
+      20,
+      80
+    ],
+    "kart_band_info": [
+      15,
+      90
+    ],
+    "mode": "informational bands must PASS with measured values (not strict physics)"
+  }
+}

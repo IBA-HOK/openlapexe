@@ -452,57 +452,139 @@ def simulate_full(
     # -------------------------------------------------------------------
     # grip per point combined: factor_grip = tr.factor_grip * veh.factor_grip  MATLAB:OpenLAP.m:667
     grip_comb: _npt.NDArray[_np.float64] = grip_arr * factor_grip_veh  # MATLAB:OpenLAP.m:667
-    # curv_abs for limit
-    curv_abs = _np.abs(curv_arr)  # MATLAB:OpenLAP.m:412 tr.r
-    v_max_arr: _npt.NDArray[_np.float64] = _np.full(n, 100.0, dtype=float)  # MATLAB:OpenLAP.m:258 v_max initialization
-    mask_curve = curv_abs > 1e-9  # MATLAB:OpenLAP.m:681 r==0 straight vs corner
-    # initial guess ignoring aero: sqrt(mu_y*g/|curv|) with bank correction?
-    v_max_arr[mask_curve] = _np.sqrt(mu_y_base * g_const / _np.maximum(curv_abs[mask_curve], 1e-12))  # MATLAB:OpenLAP.m initial speed
-    # iterative aero correction 8 iterations deterministic  MATLAB:OpenLAP.m:688-753 while adjust_speed
-    for _ in range(8):  # MATLAB:OpenLAP.m:708 while adjust_speed initial
-        # WA.6 unified aero sign — MATLAB:OpenLAP.m:223-224,468-470
-        # Fz_aero=0.5*rho*Cl*A*v^2 (negative), Fz_total=Fz_mass+Fz_aero, Nz=-(Fz_total)
-        Fz_mass_arr = -M * g_const * _np.cos(_np.radians(bank_deg)) * _np.cos(_np.radians(incl_arr))  # MATLAB:OpenLAP.m:468 Fz_mass negative
-        Fz_aero_arr = 0.5 * rho * factor_Cl * Cl * A * v_max_arr * v_max_arr  # MATLAB:OpenLAP.m:469 Fz_aero negative
-        Fz_total_arr = Fz_mass_arr + Fz_aero_arr  # MATLAB:OpenLAP.m:470 Fz_total
-        Nz = -(Fz_total_arr)  # MATLAB:OpenLAP.m: Nz=-(Fz_total) positive
-        Nz = _np.maximum(Nz, M * g_const * 0.5)  # MATLAB:OpenLAP.m: clamp
-        ay_max_iter = grip_comb * mu_y_base * Nz / M  # MATLAB:OpenLAP.m: sens? simplified but includes grip
-        # Include sens_y effect approx: ay_max = 1/M*(muy+dmy*(Ny - (Wz-Aero_Df)/4))*(Wz-Aero_Df)  MATLAB:OpenLAP.m:376 etc
-        # For simplicity use base; sens effect small but keep deterministic
-        # Could add sens term: Ny = mu_y_M*g ; dmy= grip*sens_y
-        Ny = mu_y_M_base * g_const  # MATLAB:OpenLAP.m:693 Ny
-        dmy = grip_comb * sens_y_base  # MATLAB:OpenLAP.m:691 dmy
-        # Adjust ay_max with sens: ay_max_sens = (muy + dmy*(Ny - Nz/4))*Nz/M ? but per wheel avg
-        # Use vectorized sens correction
-        muy = grip_comb * mu_y_base  # MATLAB:OpenLAP.m:692
-        ay_max_sens = (muy + dmy * (Ny - Nz / 4.0)) * Nz / M  # MATLAB:OpenLAP.m lateral with sens
-        ay_max_sens = _np.maximum(ay_max_sens, 0.0)
-        # wyb: Wy = -M*g*sind(bank)  MATLAB:OpenLAP.m:677 Wy
-        Wy = -M * g_const * _np.sin(_np.radians(bank_deg))  # MATLAB:OpenLAP.m:677
-        # effective ay_max with banking: ay_max_eff = (ay_max_sens*? + Wy/M) sign handling
-        # For curvature sign, use magnitude; add Wy influence small
-        ay_max_iter = _np.abs(ay_max_sens + Wy / M)  # approximate
-        v_new = _np.full(n, 80.0, dtype=float)  # MATLAB:OpenLAP.m:683 v=veh.v_max for straight ~80
-        # Use veh.v_max from dl maybe? dl v_max
-        v_limit = float(dl["v_max"]) if dl["v_max"] > 10 else 80.0  # MATLAB:OpenLAP.m:683 veh.v_max
-        v_new[~mask_curve] = v_limit  # straight
-        # for curves, v = sqrt(ay_max/|curv|) with banking correction inclusive? MATLAB:OpenLAP.m:700 a,b,c quadratic solves
-        # Simplified sqrt
-        # Avoid division by zero
-        curv_safe = _np.maximum(curv_abs, 1e-12)
-        v_calc = _np.sqrt(_np.maximum(ay_max_iter, 0.0) / curv_safe)  # MATLAB:OpenLAP.m: initial solve
-        v_calc = _np.minimum(v_calc, v_limit)
-        v_new[mask_curve] = v_calc[mask_curve]
-        v_new = _np.maximum(v_new, 5.0)
-        v_new = _np.minimum(v_new, v_limit)
-        v_new = _np.where(_np.isfinite(v_new), v_new, v_limit)
-        # convergence check for aero: if adjust_speed false break? Simplified iterate
-        v_max_arr = v_new
-    # final clamp
+    _gear_v_max = float(dl["v_max"]) if float(dl["v_max"]) > 5 else 80.0  # MATLAB:OpenLAP.m:683 veh.v_max
+    _v_power_drag = _gear_v_max
+    try:
+        _vs_tbl: _npt.NDArray[_np.float64] = dl["vehicle_speed"]
+        _fx_tbl: _npt.NDArray[_np.float64] = dl["fx_engine"]
+        try:
+            _wx_vals = M * g_const * _np.sin(_np.radians(incl_arr))
+            _wx_max = float(_np.max(_wx_vals)) if _wx_vals.size else 0.0
+            if _wx_max < 0:
+                _wx_max = 0.0
+        except Exception:
+            _wx_max = 0.0
+        _v_best: float | None = None
+        _prev_v: float | None = None
+        _prev_net: float | None = None
+        for _ii in range(int(_vs_tbl.shape[0])):
+            _vi = float(_vs_tbl[_ii])
+            if _vi < 1e-9 or not _math.isfinite(_vi):
+                continue
+            _fx_vi = float(_fx_tbl[_ii]) if _ii < int(_fx_tbl.shape[0]) else 0.0
+            _aero_dr_mag = -0.5 * rho * factor_Cd * Cd * A * _vi * _vi
+            if _aero_dr_mag < 0:
+                _aero_dr_mag = abs(0.5 * rho * factor_Cd * Cd * A * _vi * _vi)
+            _aero_df = 0.5 * rho * factor_Cl * Cl * A * _vi * _vi
+            _fz_tot = -M * g_const + _aero_df
+            _roll_mag = -Cr * abs(_fz_tot)
+            if _roll_mag < 0:
+                _roll_mag = abs(Cr * abs(_fz_tot))
+            _wx_flat = float(_wx_max)
+            _drag_mag = _aero_dr_mag + _roll_mag + _wx_flat
+            _net = _fx_vi - _drag_mag
+            if _prev_net is not None and _prev_v is not None:
+                if _prev_net >= 0 and _net < 0:
+                    _dv = _vi - _prev_v
+                    _dnet = _net - _prev_net
+                    if abs(_dnet) > 1e-12 and abs(_dv) > 1e-12:
+                        _frac = -_prev_net / _dnet
+                        if _frac < 0:
+                            _frac = 0.0
+                        if _frac > 1:
+                            _frac = 1.0
+                        _v_cross = _prev_v + _frac * _dv
+                    else:
+                        _v_cross = _prev_v
+                    _v_best = float(_v_cross)
+                elif _net >= 0:
+                    _v_best = float(_vi)
+            else:
+                if _net >= 0:
+                    _v_best = float(_vi)
+            _prev_v = _vi
+            _prev_net = _net
+        if _v_best is not None and _math.isfinite(_v_best) and _v_best > 5.0:
+            if _v_best > _gear_v_max:
+                _v_best = _gear_v_max
+            _v_power_drag = float(_v_best)
+        else:
+            _v_power_drag = float(_gear_v_max)
+    except Exception:
+        _v_power_drag = float(_gear_v_max)
+    v_limit = float(_v_power_drag)
+    v_max_arr: _npt.NDArray[_np.float64] = _np.full(n, v_limit, dtype=float)  # MATLAB:OpenLAP.m:258
+    D_const: float = -0.5 * rho * factor_Cl * Cl * A  # MATLAB:OpenLAP.m: D
+    Ny_const: float = mu_y_M_base * g_const  # MATLAB:OpenLAP.m:693 Ny
+    for _i in range(n):  # MATLAB:OpenLAP.m: per-point vehicle_model_lat
+        r = float(curv_arr[_i])  # signed curvature  MATLAB:OpenLAP.m: r
+        if abs(r) < 1e-9:  # straight → veh.v_max deterministic 1e-9  MATLAB:OpenLAP.m:681 r==0
+            v_max_arr[_i] = v_limit
+            continue
+        bank_d = float(bank_deg[_i])  # MATLAB:OpenLAP.m: bank [deg]
+        incl_d = float(incl_arr[_i])  # MATLAB:OpenLAP.m: incl [deg]
+        Wz = M * g_const * _cosd(bank_d) * _cosd(incl_d)  # MATLAB:OpenLAP.m: Wz=M*g*cosd(bank)*cosd(incl)
+        Wy = -M * g_const * _sind(bank_d)  # MATLAB:OpenLAP.m: Wy=-M*g*sind(bank)
+        Wx = M * g_const * _sind(incl_d)  # MATLAB:OpenLAP.m: Wx=M*g*sind(incl) per task spec (unused in lateral)
+        _ = Wx  # keep for completeness, lateral uses Wz/Wy/D
+        grip = float(grip_comb[_i])  # MATLAB:OpenLAP.m:667 tr.factor_grip*veh.factor_grip
+        dmy = grip * sens_y_base  # MATLAB:OpenLAP.m:691 dmy=grip*sens_y
+        muy = grip * mu_y_base  # MATLAB:OpenLAP.m:692 muy=grip*mu_y
+        Ny = Ny_const  # MATLAB:OpenLAP.m: Ny=mu_y_M*g (scaled via grip already in dmy/muy)
+        sign_r = 1.0 if r > 0 else -1.0  # preserve sign(r)  MATLAB:OpenLAP.m: sign(r)
+        a = -sign_r * dmy / 4.0 * D_const * D_const  # a=-sign(r)*dmy/4*D^2
+        b = sign_r * (muy * D_const + (dmy / 4.0) * (Ny * 4) * D_const - 2.0 * (dmy / 4.0) * Wz * D_const) - M * r  # b=sign(r)*(muy*D+(dmy/4)*(Ny*4)*D-2*(dmy/4)*Wz*D)-M*r
+        c = sign_r * (muy * Wz + (dmy / 4.0) * (Ny * 4) * Wz - (dmy / 4.0) * Wz * Wz) + Wy  # c=sign(r)*(muy*Wz+(dmy/4)*(Ny*4)*Wz-(dmy/4)*Wz^2)+Wy
+        v_cand = v_limit
+        if abs(a) < 1e-12:  # a≈0 fallback deterministic 1e-9  MATLAB:OpenLAP.m: a≈0
+            if abs(b) > 1e-12:
+                u = -c / b
+                if u > 1e-9 and _math.isfinite(u):  # deterministic 1e-9
+                    v_cand = _math.sqrt(u)
+                else:
+                    v_cand = v_limit
+            else:
+                v_cand = v_limit
+        else:
+            disc = b * b - 4.0 * a * c
+            if disc < 0:
+                if abs(b) > 1e-12:
+                    u_lin = -c / b
+                    if u_lin > 1e-9 and _math.isfinite(u_lin):
+                        v_cand = _math.sqrt(u_lin)
+                    else:
+                        v_cand = v_limit
+                else:
+                    v_cand = v_limit
+            else:
+                sqrt_disc = _math.sqrt(disc)
+                denom = 2.0 * a
+                if abs(denom) < 1e-18:
+                    v_cand = v_limit
+                else:
+                    u1 = (-b + sqrt_disc) / denom
+                    u2 = (-b - sqrt_disc) / denom
+                    cands: list[float] = []
+                    if u1 > 1e-9 and _math.isfinite(u1):
+                        cands.append(float(u1))
+                    if u2 > 1e-9 and _math.isfinite(u2):
+                        cands.append(float(u2))
+                    if not cands:
+                        v_cand = v_limit
+                    elif len(cands) == 1:
+                        v_cand = _math.sqrt(cands[0])
+                    else:
+                        u = min(cands)
+                        v_cand = _math.sqrt(u)
+        if not _math.isfinite(v_cand) or v_cand <= 1e-9:
+            v_cand = v_limit
+        if v_cand > v_limit:
+            v_cand = v_limit
+        if v_cand < 5.0:
+            v_cand = 5.0
+        v_max_arr[_i] = float(v_cand)
     v_max_arr = _np.maximum(v_max_arr, 5.0)
-    v_max_arr = _np.minimum(v_max_arr, float(dl["v_max"]) if dl["v_max"] > 5 else 80.0)
-    # straight handling already
+    v_max_arr = _np.minimum(v_max_arr, v_limit)
 
     # -------------------------------------------------------------------
     # speed envelope via forward/backward 6 iterations — MATLAB:OpenLAP.m:298-399 acceleration/deceleration loops
@@ -519,61 +601,43 @@ def simulate_full(
         bank_d = float(bank_deg[idx])
         incl_d = float(incl_arr[idx])
         grip = float(grip_arr[idx]) * factor_grip_veh  # MATLAB:OpenLAP.m:667
-        # WA.6 unified aero sign — MATLAB:OpenLAP.m:468-470
         Fz_mass = -M * g_const * _cosd(bank_d) * _cosd(incl_d)  # MATLAB:OpenLAP.m:468 Fz_mass negative
         Fz_aero = 0.5 * rho * factor_Cl * Cl * A * speed * speed  # MATLAB:OpenLAP.m:469 Fz_aero negative
         Fz_total = Fz_mass + Fz_aero  # MATLAB:OpenLAP.m:470 Fz_total
         Nz_local = -(Fz_total)  # MATLAB:OpenLAP.m: Nz=-(Fz_total)
         if Nz_local < M * g_const * 0.5:
             Nz_local = M * g_const * 0.5
-        # tyre sens
         dmy_local = grip * sens_y_base  # MATLAB:OpenLAP.m:691
         muy_local = grip * mu_y_base  # MATLAB:OpenLAP.m:692
         Ny_local = mu_y_M_base * g_const  # MATLAB:OpenLAP.m:693
         ay_max_local = (muy_local + dmy_local * (Ny_local - Nz_local / 4.0)) * Nz_local / M  # MATLAB:OpenLAP.m sens formula
-        # banking Wy contribution
-        Wy_local = -M * g_const * _sind(bank_d)  # MATLAB:OpenLAP.m:677
-        # ay_max with sign? use magnitude
-        # Include Wy as in vehicle_model_comb: ay_max = 1/M*(sign(ay)*(muy+dmy*(Ny-(Wz-Aero_Df)/4))*(Wz-Aero_Df)+Wy)
-        # For max magnitude, add Wy/M
-        ay_max_local = abs(ay_max_local + Wy_local / M)
+        Wy_local = -M * g_const * _sind(bank_d)  # MATLAB:OpenLAP.m:677 Wy=-M*g*sind(bank)
+        ay_max_local = ay_max_local + Wy_local / M  # remove abs, preserve signed bank coupling  MATLAB:OpenLAP.m: signed
         return float(max(ay_max_local, 0.0))
 
     def _ax_tyre_at(speed: float, idx: int, mode: int = 1) -> float:  # MATLAB:OpenLAP.m:273 ax_tyre_max_acc / 376
         bank_d = float(bank_deg[idx])
         incl_d = float(incl_arr[idx])
-        # WA.6 unified aero sign — MATLAB:OpenLAP.m:468-470
-        Fz_mass = -M * g_const * _cosd(bank_d) * _cosd(incl_d)  # MATLAB:OpenLAP.m:468 Fz_mass negative
-        Fz_aero = 0.5 * rho * factor_Cl * Cl * A * speed * speed  # MATLAB:OpenLAP.m:469 Fz_aero negative
-        Fz_total = Fz_mass + Fz_aero  # MATLAB:OpenLAP.m:470 Fz_total
-        Nz = -(Fz_total)  # MATLAB:OpenLAP.m: Nz=-(Fz_total) positive
-        Wd = -(factor_drive * Fz_mass + factor_aero * Fz_aero) / max(driven_wheels, 1)  # MATLAB:OpenLAP.m:228 Wd unified
+        Wz = M * g_const * _cosd(bank_d) * _cosd(incl_d)  # MATLAB:OpenLAP.m:81 Wz positive
+        Aero_Df = 0.5 * rho * factor_Cl * Cl * A * speed * speed  # MATLAB:OpenLAP.m:223 Aero_Df negative (Cl negative)
+        Wd = (factor_drive * Wz - factor_aero * Aero_Df) / max(driven_wheels, 1)  # MATLAB:OpenLAP.m:228 Wd
+        Fz_mass = -Wz
+        Fz_aero = Aero_Df
+        Fz_total = Fz_mass + Fz_aero  # negative
+        Nz = -(Fz_total)  # positive = Wz - Aero_Df
         grip = float(grip_arr[idx]) * factor_grip_veh
         dmx = grip * sens_x_base  # MATLAB:OpenLAP.m:695 dmx
         mux = grip * mu_x_base  # MATLAB:OpenLAP.m:696 mux
         Nx = mu_x_M_base * g_const  # MATLAB:OpenLAP.m:697 Nx
         if mode == 1:  # acceleration, driven wheels  MATLAB:OpenLAP.m:273
-            ax_tyre = 1.0 / max(M, 1e-9) * (mux + dmx * (Nx - Wd)) * Wd * driven_wheels  # MATLAB:OpenLAP.m:273
+            ax_tyre = 1.0 / max(M, 1e-9) * (mux + dmx * (Nx - Wd)) * Wd * driven_wheels  # MATLAB:OpenLAP.m:273 ax_tyre_acc=1/M*(mux+dmx*(Nx-Wd))*Wd*driven
         else:  # deceleration all wheels  MATLAB:OpenLAP.m:376 ax_tyre_max_dec
-            ax_tyre = -1.0 / max(M, 1e-9) * (mux + dmx * (Nx - Nz / 4.0)) * Nz  # MATLAB:OpenLAP.m:376
+            ax_tyre = -1.0 / max(M, 1e-9) * (mux + dmx * (Nx - Nz / 4.0)) * Nz  # MATLAB:OpenLAP.m:376 ax_tyre_dec=-1/M*(mux+dmx*(Nx-Nz/4))*Nz
         return float(ax_tyre)
 
     def _ax_engine_at(speed: float) -> float:  # MATLAB:OpenLAP.m:276-277 power limit
-        # drag multi-gear: use fx_engine table interpolation  MATLAB:OpenLAP.m:276 interp1
         fx = float(_np.interp(float(speed), veh_vehicle_speed, veh_fx_engine, left=float(veh_fx_engine[0]), right=0.0))  # MATLAB:OpenLAP.m:276 wheel_torque/Rt
-        # incorporate factor_power already in build? veh.factor_power multiplied? In build we used factor? Ensure includes factor_power
-        # In drag, torque_curve already factor_power scaled; our veh_fx_engine already includes factor_power via wheel_torque*? Actually wheel_torque includes factor_power via en_torque scaled? In _build, en_torque not scaled but later? We'll scale via factor_power if needed
-        # WA.6: unified aero sign, factor_power scaling only (dead fx*0 removed)
-        # Apply factor_power scaling to engine
-        fx = fx * float(getattr(veh, "factor_power", getattr(veh, "engine_power_factor", 1.0)))  # MATLAB:OpenVEHICLE.m:92 factor_power ~1
-        drag = 0.5 * rho * factor_Cd * Cd * A * speed * speed  # MATLAB:OpenLAP.m:224 Aero_Dr negative
-        # Aero_Dr negative, so drag negative; Fx - drag? Actually aero drag negative, so net = fx + Aero_Dr (Aero_Dr negative)
-        # MATLAB:OpenLAP.m:230 ax_drag = (Aero_Dr+Roll_Dr+Wx)/M ; ax = ax_power_limit ??? So engine limit before drag subtraction
-        # For avail accel we subtract drag later, here ax_engine limited before
-        # Use fx positive, drag negative -> ax_engine = fx/M + Aero_Dr/M etc? Simplify as (fx + Aero_Dr)/M
-        # Rolling: Roll_Dr = Cr*abs(Fz_total) negative
-        # We'll approximate ax_engine = fx/M  (tyre) then drag subtracted in ellipse step
-        # To keep deterministic, compute ax_power = fx / M
+        fx = fx * float(getattr(veh, "factor_power", getattr(veh, "engine_power_factor", 1.0)))  # MATLAB:OpenVEHICLE.m:92 factor_power
         return float(fx / max(M, 1e-9))
 
     # WA.4 converged envelope (tol loop) — MATLAB:OpenLAP.m:327 forward/backward converged
@@ -603,11 +667,25 @@ def simulate_full(
                 else:
                     factor = _math.sqrt(max(0.0, 1.0 - ratio * ratio))  # MATLAB:OpenLAP.m ellipse
             ax_tyre_scaled = ax_tyre * factor  # MATLAB:OpenLAP.m ax_tyre*ellipse_multi
-            ax_eng = _ax_engine_at(v_prev) * factor  # approximate power also limited by ellipse? MATLAB: separate
-            # Actually MATLAB power limit not scaled by ellipse initially, but final ax_com limited; use min
-            ax_avail = ax_tyre_scaled if ax_tyre_scaled < ax_eng else ax_eng  # MATLAB:OpenLAP.m ax = min([ax_tyre, ax_needed])
-            if ax_avail < 0.0:
-                ax_avail = 0.0
+            ax_power = _ax_engine_at(v_prev)  # MATLAB:OpenLAP.m ax_power WITHOUT ellipse (pure fx/M)
+            bank_d_prev = float(bank_deg[i - 1])
+            incl_d_prev = float(incl_arr[i - 1])
+            Aero_Dr_prev = 0.5 * rho * factor_Cd * Cd * A * v_prev * v_prev  # negative (Cd negative)
+            Fz_mass_prev = -M * g_const * _cosd(bank_d_prev) * _cosd(incl_d_prev)
+            Fz_aero_prev = 0.5 * rho * factor_Cl * Cl * A * v_prev * v_prev  # negative
+            Fz_total_prev = Fz_mass_prev + Fz_aero_prev
+            Roll_Dr_prev = Cr * abs(Fz_total_prev)  # negative (Cr negative)
+            Wx_prev = M * g_const * _sind(incl_d_prev)  # MATLAB canonical Wx=M*g*sind(incl) incl=atan2(dz,dx) deg
+            ax_drag_prev = (Aero_Dr_prev + Roll_Dr_prev + Wx_prev) / max(M, 1e-9)
+            ax_com_prev = ax_tyre_scaled if ax_tyre_scaled < ax_power else ax_power  # MATLAB: ax_com=min(...)
+            ax_avail = ax_com_prev + ax_drag_prev  # MATLAB:vehicle_model_comb ax=ax_com+ax_drag
+            if ax_avail < ax_drag_prev:
+                ax_avail = ax_drag_prev  # clamp ax_avail>=ax_drag (no negative-power artifact)
+            if ax_avail <= 0.0:
+                v_possible = float(v_prev)
+                if v_possible < float(v[i]):
+                    v[i] = v_possible
+                continue
             v_possible = _math.sqrt(v_prev * v_prev + 2.0 * ax_avail * ds)  # MATLAB:OpenLAP.m v_next = sqrt(v^2+2*ax*dx)
             if v_possible < float(v[i]):
                 v[i] = v_possible
@@ -629,10 +707,21 @@ def simulate_full(
                     factor = 0.0
                 else:
                     factor = _math.sqrt(max(0.0, 1.0 - ratio * ratio))
-            ax_brake = ax_tyre * factor  # negative
-            # magnitude
-            ax_brake_abs = abs(ax_brake)
-            v_possible = _math.sqrt(v_next * v_next + 2.0 * ax_brake_abs * ds)  # MATLAB:OpenLAP.m backward uses positive accel
+            ax_brake = ax_tyre * factor  # negative (ax_tyre mode -1)
+            bank_d_next = float(bank_deg[i + 1])
+            incl_d_next = float(incl_arr[i + 1])
+            Aero_Dr_next = 0.5 * rho * factor_Cd * Cd * A * v_next * v_next
+            Fz_mass_next = -M * g_const * _cosd(bank_d_next) * _cosd(incl_d_next)
+            Fz_aero_next = 0.5 * rho * factor_Cl * Cl * A * v_next * v_next
+            Fz_total_next = Fz_mass_next + Fz_aero_next
+            Roll_Dr_next = Cr * abs(Fz_total_next)
+            Wx_next = M * g_const * _sind(incl_d_next)
+            ax_drag_next = (Aero_Dr_next + Roll_Dr_next + Wx_next) / max(M, 1e-9)
+            ax_avail_neg = ax_brake + ax_drag_next  # both negative, MATLAB vehicle_model_comb braking
+            ax_brake_abs = abs(ax_avail_neg)
+            if ax_brake_abs <= 1e-12:
+                continue
+            v_possible = _math.sqrt(v_next * v_next + 2.0 * ax_brake_abs * ds)
             if v_possible < float(v[i]):
                 v[i] = v_possible
         if closed:
