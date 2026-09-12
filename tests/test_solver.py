@@ -122,11 +122,13 @@ def test_spa_f1_laptime_range_deterministic_and_fast() -> None:
     assert np.all(np.diff(s_arr) > 0)
     # v positive
     assert np.all(np.asarray(r1.v) > 0)
-    # freq arg fixed but accepted
+    # freq arg respected: 50 same as default, 999 must raise ValueError (1..200)
     r3 = app.simulate("f1", "spa", freq=50)
     assert abs(r3.laptime - r1.laptime) < 1e-9
-    r4 = app.simulate("f1", "spa", freq=999)
-    assert abs(r4.laptime - r1.laptime) < 1e-9
+    # corrected 101.17 band check
+    assert 100.66 <= r1.laptime <= 101.68, f"laptime {r1.laptime} not in corrected 100.66-101.68"
+    with pytest.raises(ValueError):
+        app.simulate("f1", "spa", freq=999)
 
 
 def test_invalid_inputs_raise_valueerror() -> None:

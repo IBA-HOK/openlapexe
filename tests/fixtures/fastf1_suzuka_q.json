@@ -1,0 +1,22 @@
+{
+  "source": "fastf1",
+  "event": "Japan GP - Suzuka Qualifying",
+  "created": "2026-09-12T13:10:24.220420+00:00",
+  "provisional": true,
+  "note": "network unavailable or fastf1 not installed; provisional placeholder with known reference values",
+  "years": {
+    "2024": {
+      "session": "Q",
+      "fastest_lap_s": 88.197,
+      "driver": "VER",
+      "provisional": true
+    },
+    "2025": {
+      "session": "Q",
+      "fastest_lap_s": 86.983,
+      "driver": "VER",
+      "provisional": true
+    }
+  },
+  "import_error": "fastf1 not installed: No module named 'fastf1'"
+}

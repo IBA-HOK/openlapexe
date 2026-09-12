@@ -1,0 +1,130 @@
+{
+  "Name": "Rental Kart GX270",
+  "Type": "Kart",
+  "M": 185,
+  "df": 0.42,
+  "L": 1.28,
+  "rack": 8,
+  "Cl": -0.3,
+  "Cd": -0.8,
+  "factor_Cl": 1,
+  "factor_Cd": 1,
+  "da": 0.42,
+  "A": 0.55,
+  "rho": 1.225,
+  "br_disc_d": 0.18,
+  "br_pad_h": 0.025,
+  "br_pad_mu": 0.42,
+  "br_nop": 2,
+  "br_pist_d": 0.032,
+  "br_mast_d": 0.019,
+  "br_ped_r": 4,
+  "factor_grip": 1,
+  "tyre_radius": 0.14,
+  "Cr": -0.012,
+  "mu_x": 1.35,
+  "mu_x_M": 150,
+  "sens_x": 0.00012,
+  "mu_y": 1.4,
+  "mu_y_M": 150,
+  "sens_y": 0.00012,
+  "CF": 400,
+  "CR": 500,
+  "factor_power": 0.95,
+  "n_thermal": 0.3,
+  "fuel_LHV": 44000000,
+  "drive": "RWD",
+  "shift_time": 0.05,
+  "n_primary": 1,
+  "n_final": 0.95,
+  "n_gearbox": 0.98,
+  "ratio_primary": 1,
+  "ratio_final": 3.5,
+  "ratio_gearbox": [
+    1.0
+  ],
+  "torque_curve": [
+    {
+      "rpm": 1000,
+      "torque_nm": 19.5
+    },
+    {
+      "rpm": 1350,
+      "torque_nm": 30.0
+    },
+    {
+      "rpm": 1700,
+      "torque_nm": 38.0
+    },
+    {
+      "rpm": 2050,
+      "torque_nm": 43.5
+    },
+    {
+      "rpm": 2500,
+      "torque_nm": 46.0
+    },
+    {
+      "rpm": 2850,
+      "torque_nm": 44.0
+    },
+    {
+      "rpm": 3200,
+      "torque_nm": 32.0
+    },
+    {
+      "rpm": 3600,
+      "torque_nm": 16.58
+    },
+    {
+      "rpm": 3800,
+      "torque_nm": 14.0
+    },
+    {
+      "rpm": 4000,
+      "torque_nm": 11.5
+    }
+  ],
+  "cog_height_m": 0.28,
+  "mass_kg": 185,
+  "wheelbase_m": 1.28,
+  "cda": 0.44,
+  "weight_dist_front": 0.42,
+  "cl": -0.3,
+  "tire_mu_x": 1.35,
+  "tire_mu_y": 1.4,
+  "engine_power_factor": 0.95,
+  "final_drive": 3.5,
+  "provenance": {
+    "engine": "Honda GX270",
+    "power_ps": 8.5,
+    "power_kw": 6.25,
+    "power_rpm": 3600,
+    "peak_torque_nm": 46.0,
+    "peak_torque_rpm": 2500,
+    "mass_total_kg": 185,
+    "description": "Honda GX270 270cc single-cylinder 8.5PS rental kart, total mass incl. driver",
+    "df": 0.42,
+    "L_m": 1.28,
+    "A_m2": 0.55,
+    "Cd": -0.8,
+    "Cl": -0.3,
+    "tyre_radius_m": 0.14,
+    "Cr": -0.012,
+    "mu_x": 1.35,
+    "mu_y": 1.4,
+    "drive": "RWD",
+    "ratio_final": 3.5,
+    "ratio_gearbox": [
+      1.0
+    ],
+    "torque_curve_points": 10,
+    "torque_curve_rpm_range": "1000-4000",
+    "governed_rpm": 4000,
+    "note": "Peak ~46Nm@2500rpm, 6.25kW@3600rpm (16.58Nm). Governor-limited; torque drops sharply above 3200rpm. Single-ratio direct drive.",
+    "source": "Honda GX270 spec sheet + rental kart fleet estimate, scaled from OpenLAP F1/GT baseline (cda=abs(Cd)*A=0.44)",
+    "created": "2026-09-12",
+    "creator": "openlapexe Task 5",
+    "license": "GPLv3"
+  }
+}

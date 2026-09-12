@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
-"""Full solver regression: spa_f1_full_baseline ≈95.8s ±0.5% and determinism.
+"""Full solver regression: spa_f1_full_baseline ≈101.17s ±0.5% and determinism.
 
 TDD red→green for simulate_full baseline lock.
-New baseline: data/reference/spa_f1_full_baseline.txt (measured ≈95.8059 at 50Hz).
+New baseline: data/reference/spa_f1_full_baseline.txt (measured 101.17879935516551 at 50Hz).
 Old baseline data/reference/spa_f1_baseline.txt=101.17 is retained as previous_baseline.
+Previous buggy baseline 95.80591391534297 is documented as previous_buggy.
 """
 from __future__ import annotations
 
@@ -16,6 +17,7 @@ import pytest
 BASELINE_FULL_PATH = pathlib.Path(__file__).resolve().parent.parent / "data" / "reference" / "spa_f1_full_baseline.txt"
 BASELINE_OLD_PATH = pathlib.Path(__file__).resolve().parent.parent / "data" / "reference" / "spa_f1_baseline.txt"
 TOLERANCE = 0.005  # ±0.5%
+PREVIOUS_BUGGY = 95.80591391534297
 
 
 def _read_baseline(path: pathlib.Path) -> float:
@@ -32,14 +34,17 @@ def test_full_baseline_file_exists_and_utf8() -> None:
     assert not raw.startswith("\ufeff"), "BOM detected, should be plain utf-8"
     # first token is float
     val = float(raw.strip().split()[0])
-    # 90-110 range sanity, but should be near 95.8 not 101.17
-    assert 85.0 <= val <= 105.0, f"full baseline {val} out of plausible range"
+    # plausible range now 100.66-101.68 ±0.5% around 101.17
+    assert 90.0 <= val <= 110.0, f"full baseline {val} out of plausible range"
+    assert 100.0 <= val <= 102.5, f"full baseline {val} not near 101.17"
     # ensure old baseline still exists unchanged
     assert BASELINE_OLD_PATH.exists()
     old = _read_baseline(BASELINE_OLD_PATH)
     assert abs(old - 101.17) < 1e-9, f"old baseline changed {old}"
-    # new baseline must differ from old beyond tolerance
-    assert abs(val - old) > 1.0, f"full baseline {val} too close to old {old}"
+    # corrected: new baseline should be close to old (both ~101.17) within 1s
+    assert abs(val - old) < 1.0, f"full baseline {val} too far from old {old}, expected close (~101.17)"
+    # previous buggy must be outside tolerance
+    assert abs(PREVIOUS_BUGGY - val) > 1.0, f"previous buggy {PREVIOUS_BUGGY} too close to corrected {val}"
 
 
 def test_full_baseline_value_is_measured_not_mocked() -> None:
@@ -61,8 +66,9 @@ def test_spa_f1_full_50hz_laptime_range() -> None:
 
     # When: simulate
     res = simulate_full("f1", "spa", 50)
-    # Then: plausible F1 Spa range narrowed around new physics (~95.8)
-    assert 90.0 <= res.laptime <= 102.0, f"full laptime {res.laptime} not in 90-102"
+    # Then: plausible F1 Spa range narrowed around corrected physics (~101.17 ±0.5% => 100.66-101.68, keep 90-110 outer)
+    assert 90.0 <= res.laptime <= 110.0, f"full laptime {res.laptime} not in 90-110"
+    assert 100.0 <= res.laptime <= 102.5, f"full laptime {res.laptime} not in corrected 100-102.5"
     # also within ±0.5% of baseline file
     baseline = _read_baseline(BASELINE_FULL_PATH)
     assert abs(res.laptime - baseline) / baseline <= TOLERANCE

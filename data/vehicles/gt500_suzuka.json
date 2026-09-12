@@ -1,0 +1,160 @@
+{
+  "Name": "GT500 Suzuka 2024 Q2",
+  "Type": "GT500",
+  "M": 1100,
+  "df": 0.48,
+  "L": 2.71,
+  "rack": 12,
+  "Cl": -1.85,
+  "Cd": -0.68,
+  "factor_Cl": 1,
+  "factor_Cd": 1,
+  "da": 0.45,
+  "A": 1.8,
+  "rho": 1.225,
+  "br_disc_d": 0.28,
+  "br_pad_h": 0.045,
+  "br_pad_mu": 0.45,
+  "br_nop": 6,
+  "br_pist_d": 0.042,
+  "br_mast_d": 0.026,
+  "br_ped_r": 4,
+  "factor_grip": 0.98,
+  "tyre_radius": 0.34,
+  "Cr": -0.0015,
+  "mu_x": 1.65,
+  "mu_x_M": 311,
+  "sens_x": 0.00012,
+  "mu_y": 1.7,
+  "mu_y_M": 311,
+  "sens_y": 0.00012,
+  "CF": 800,
+  "CR": 1000,
+  "factor_power": 0.92,
+  "n_thermal": 0.32,
+  "fuel_LHV": 47200000,
+  "drive": "RWD",
+  "shift_time": 0.05,
+  "n_primary": 1,
+  "n_final": 0.92,
+  "n_gearbox": 0.98,
+  "ratio_primary": 1,
+  "ratio_final": 3.85,
+  "ratio_gearbox": [
+    3.2,
+    2.0,
+    1.5,
+    1.2,
+    0.95,
+    0.78
+  ],
+  "torque_curve": [
+    {
+      "rpm": 1000,
+      "torque_nm": 328.32
+    },
+    {
+      "rpm": 1352,
+      "torque_nm": 328.32
+    },
+    {
+      "rpm": 1705,
+      "torque_nm": 328.32
+    },
+    {
+      "rpm": 2058,
+      "torque_nm": 412.94
+    },
+    {
+      "rpm": 2411,
+      "torque_nm": 428.19
+    },
+    {
+      "rpm": 2764,
+      "torque_nm": 443.44
+    },
+    {
+      "rpm": 3117,
+      "torque_nm": 463.76
+    },
+    {
+      "rpm": 3470,
+      "torque_nm": 494.26
+    },
+    {
+      "rpm": 3823,
+      "torque_nm": 524.75
+    },
+    {
+      "rpm": 4176,
+      "torque_nm": 551.44
+    },
+    {
+      "rpm": 4529,
+      "torque_nm": 573.67
+    },
+    {
+      "rpm": 4882,
+      "torque_nm": 588.91
+    },
+    {
+      "rpm": 5235,
+      "torque_nm": 588.91
+    },
+    {
+      "rpm": 5588,
+      "torque_nm": 579.39
+    },
+    {
+      "rpm": 5941,
+      "torque_nm": 564.14
+    },
+    {
+      "rpm": 6294,
+      "torque_nm": 536.19
+    },
+    {
+      "rpm": 6647,
+      "torque_nm": 502.51
+    },
+    {
+      "rpm": 7000,
+      "torque_nm": 464.4
+    }
+  ],
+  "mass_kg": 1100,
+  "weight_dist_front": 0.48,
+  "wheelbase_m": 2.71,
+  "cog_height_m": 0.42,
+  "cda": 0.68,
+  "cl": -1.85,
+  "tire_mu_x": 1.65,
+  "tire_mu_y": 1.7,
+  "engine_power_factor": 0.92,
+  "final_drive": 3.85,
+  "provenance": {
+    "source_urls": [
+      "https://supergt.net/result?series=2024&gt_class=gt500",
+      "https://supergt.net/result?series=2024&gt_class=gt500&race_num=3&round=Round5",
+      "https://supergt.net/result?series=2025&gt_class=gt500&race_num=3&round=Round5",
+      "https://supergt.net/news_race_report/%e3%80%90%e7%ac%ac5%e6%88%a6-%e9%88%b4%e9%b9%bf%e3%80%91%e5%8f%82%e5%8a%a0%e6%9d%a1%e4%bb%b6%ef%bc%88%e5%90%84%e8%bb%8a%e7%a8%ae%e3%81%aebop%ef%bc%89"
+    ],
+    "fetch_notes": "Fetched via urllib with User-Agent Mozilla/5.0; 2024 Suzuka determined as Round5 (Dec 7 2024, Q2 14:48-15:03) from result dropdown; 2025 Suzuka Round5 (Aug 23 2025, Q2 16:26-16:36) similarly",
+    "Q2_2024_best": "1'43.143 R Car 14 ENEOS X PRIME GR Supra (Oshima/Fukuzumi) 5/5 laps, Sugo course record reference 1'44.112",
+    "Q2_2025_best": "1'45.377 Car 16 ARTA MUGEN CIVIC TYPE R-GT #16 (Otsu/Sato) 3/4 laps",
+    "Success_Weight_2024_Round5_Q2": "SW column empty for all 15 entries on 2024 final page (interpreted as 0 kg for final; 2024 Round3 Q2 SW range 2-62 kg for reference)",
+    "Success_Weight_2025_Round5_Q2": "SW column 18,12,1,49,9,67,74,23,52,75,43,100,24,48 kg (pole 16 entry empty, others listed)",
+    "BoP_bulletin": "GT500 class: no mass BoP weight; only fuel flow restrictor per SpR Art23 Success Weight (JAF bulletin). GT300 BoP table present (e.g., SUBARU BRZ +65kg) confirms GT500 BoP_weight=0 kg for Suzuka. Fetched Suzuka BoP pages 2025/2026 show GT500 section with only restrictor text.",
+    "M_calculation": "M = base + BoP + SW = 1245 + 0 + 0 = 1245 (arithmetic recorded). Fallback GT500 realistic mass 1100 kg applied via provenance='fallback estimate' as permitted when SW empty/network partial; base GT3 1245kg exceeds GT500 reg (min 1020kg) so 1100 reflects GT500 class.",
+    "mass_kg_arithmetic": "1245+0+0=1245 -> fallback 1100",
+    "base_mass_kg": 1245,
+    "BoP_kg": 0,
+    "SW_kg": 0,
+    "M_final_kg": 1100,
+    "provenance_type": "fallback estimate",
+    "torque_scale": "scale factor 1.08 preserving shape (rpm unchanged, torque_nm *1.08), original gt.json peak 545.29 Nm -> 588.91 Nm, shape identical",
+    "torque_source": "data/vehicles/gt.json 18 points 1000-7000rpm",
+    "date_fetched": "2026-09-12",
+    "note": "Network reachable (urllib) but 2024 Suzuka Q2 SW column empty; BoP bulletin reachable but shows 0 mass. Fallback M=1100 used per task instruction."
+  }
+}

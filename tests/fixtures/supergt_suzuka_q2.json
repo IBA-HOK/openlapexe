@@ -1,0 +1,15 @@
+{
+  "source": "supergt",
+  "event": "SuperGT - Suzuka Round Q2",
+  "created": "2026-09-12T13:10:26.207467+00:00",
+  "provisional": true,
+  "note": "provisional placeholder; live scrape not reachable or not implemented",
+  "data": {
+    "round": "Suzuka",
+    "session": "Q2",
+    "best_lap_s": null,
+    "class": "GT500",
+    "provisional": true,
+    "info": "placeholder - live SUPER GT official site scrape not available offline"
+  }
+}

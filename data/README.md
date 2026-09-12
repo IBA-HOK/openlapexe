@@ -59,3 +59,31 @@ git -C /tmp/OpenLAP rev-parse HEAD  # 882116a47b5c3c57d5806924b600cb7ffbb264e1 �
 python /tmp/gen_vehicles.py
 python /tmp/gen_tracks2.py
 ```
+
+## Suzuka 2026-09
+
+追加データ。`882116a` の Origin 節は不変、以下は 2026-09 追記。
+
+| name | length | source | zone | provenance link |
+|---|---|---|---|---|
+| suzuka | 5805.40 m (5805.4018 m in file) | Overpass 68 ways stitched | 6 | `data/reference/suzuka/overpass_raw.xml` |
+| sugo_west | 982 m (982.17 m in file, 950.9 m x 1.03479 scaled) | OSM way/573824373 scaled 1.03479 from 950.9 m | 10 | `data/tracks/sugo_west.json` meta, OSM way/573824373 |
+| suzuka_south | 1264 m (1263.99 m in file) | stadium-synthetic trace, synthetic approximation | 6 | `data/tracks/suzuka_south.json` meta, record honestly as synthetic |
+| gt500_suzuka | M 1100 kg fallback (1245 + 0 + 0 = 1245 -> fallback 1100) | 2024 Suzuka Q2 1'43.143 / 2025 1'45.377 | - | `data/reference/gt500_suzuka_bop_calc.md` + `data/vehicles/gt500_suzuka.json` provenance |
+| rental_gx270 | 185 kg total incl driver | Honda GX270 8.5PS rental kart | - | `data/vehicles/rental_gx270.json` provenance |
+| fs125_x30 | 150 kg total incl driver | IAME X30 125cc 28PS racing kart | - | `data/vehicles/fs125_x30.json` provenance |
+
+Notes:
+
+- suzuka: Overpass API 0.7.62.11, 68 `<way>` elements fetched 2026-09-12T13:09:52Z, bounds Suzuka Circuit surroundings, `data/tracks/suzuka.json` built with zone 6, `overpass_raw.xml` kept as raw source. Stitched centerline, length 5805.40 m.
+- sugo_west: OSM way/573824373 single way, raw length 950.9 m, scaled by 1.03479 to 982.17 m to match known west course. Record honestly as scaled estimate, not measured. Zone 10.
+- suzuka_south: stadium area synthetic trace, not survey grade, 1263.99 m, zone 6. Record honestly as synthetic approximation, do not treat as official.
+- gt500_suzuka: base 1245 kg (GT3 Generic), BoP 0 kg, SW 0 kg, arithmetic 1245, fallback 1100 kg applied per `provenance_type fallback estimate`. Q2 best times 2024 1'43.143 (Car 14) and 2025 1'45.377 (Car 16) from supergt.net Round5 Suzuka. Detail in `data/reference/gt500_suzuka_bop_calc.md`.
+- rental_gx270 / fs125_x30: masses 185 kg and 150 kg total incl driver, single ratio direct drive, created 2026-09-12, provenance in JSON.
+
+Validation:
+
+```bash
+pytest tests/test_suzuka_tracks.py tests/test_gt500_suzuka.py tests/test_kart_vehicles.py tests/test_data_schema.py -q
+git diff -- data/vehicles/f1.json data/tracks/spa.json  # empty
+```
