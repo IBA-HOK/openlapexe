@@ -176,6 +176,8 @@ def _pchip_eval(
         if k >= n - 1:
             k = n - 2
         h: float = float(x[k + 1] - x[k])
+        if h < 1e-9:  # S-OT5 PCHIP h=0 guard ensure finite
+            h = 1e-9
         t: float = (xi - float(x[k])) / h
         t2: float = t * t
         t3: float = t2 * t
