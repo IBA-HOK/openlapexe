@@ -827,7 +827,7 @@ class ResultsSteerChart(_XYChart):
 
     def __init__(self, master: tk.Widget | None = None, **kwargs: object) -> None:
         kwargs.setdefault("xlabel", "Distance [m]")
-        kwargs.setdefault("ylabel", "Angle [deg]")
+        kwargs.setdefault("ylabel", "Angle [deg]")  # S-OT3 truthful deg
         super().__init__(master, **kwargs)
         self._s_st: _np.ndarray | None = None
         self._handle: _np.ndarray | None = None
