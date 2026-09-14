@@ -75,7 +75,7 @@ def _curvature_profile(center: npt.NDArray[np.float64], closed: bool) -> npt.NDA
         ypp = np.roll(y, -1) - 2.0 * y + np.roll(y, 1)
         p_norm = np.hypot(xp, yp)
         denom = p_norm ** 3 + eps
-        cross = np.abs(xp * ypp - yp * xpp)
+        cross = xp * ypp - yp * xpp
         k = cross / denom
         k[~np.isfinite(k)] = 0.0
         return k
@@ -87,7 +87,7 @@ def _curvature_profile(center: npt.NDArray[np.float64], closed: bool) -> npt.NDA
         ypp_mid = y[2:] - 2.0 * y[1:-1] + y[:-2]
         p_norm_mid = np.hypot(xp_mid, yp_mid)
         denom_mid = p_norm_mid ** 3 + eps
-        cross_mid = np.abs(xp_mid * ypp_mid - yp_mid * xpp_mid)
+        cross_mid = xp_mid * ypp_mid - yp_mid * xpp_mid
         k_mid = cross_mid / denom_mid
         k_mid[~np.isfinite(k_mid)] = 0.0
         kappa[1:-1] = k_mid
