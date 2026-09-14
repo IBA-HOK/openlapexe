@@ -28,6 +28,12 @@ import tkinter.font as tkfont
 import numpy as _np
 
 try:
+    from openlapexe.gui.combobox_fix import fix_combobox as _fix_combo, fix_treeview_horizontal as _fix_tree_h  # type: ignore
+except Exception:
+    _fix_combo = None  # type: ignore
+    _fix_tree_h = None  # type: ignore
+
+try:
     from openlapexe.io import resource_path as _resource_path
 except Exception:
     def _resource_path(relative: str) -> pathlib.Path:  # type: ignore[no-redef]
@@ -195,6 +201,11 @@ class DragView(ttk.Frame):
             self.combo.bind("<Button-1>", lambda _e: self.refresh_vehicles())
         except Exception:
             pass
+        try:
+            if _fix_combo is not None:
+                _fix_combo(self.combo, self._vehicle_names, max_chars=36)
+        except Exception:
+            pass
 
         self.btn_run = ttk.Button(self._ctrl, text="Run", command=self._on_run)
         self.run_button = self.btn_run
@@ -246,9 +257,19 @@ class DragView(ttk.Frame):
             self.tree.column(c, width=widths[c], anchor="center", stretch=True)
         # scrollbar
         vsb = ttk.Scrollbar(self._left_frame, orient="vertical", command=self.tree.yview)
-        self.tree.configure(yscrollcommand=vsb.set)
+        hsb = ttk.Scrollbar(self._left_frame, orient="horizontal", command=self.tree.xview)
+        self.tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
         self.tree.pack(side="left", fill="both", expand=True)
         vsb.pack(side="right", fill="y")
+        try:
+            hsb.pack(side="bottom", fill="x")
+        except Exception:
+            pass
+        try:
+            if _fix_tree_h is not None:
+                _fix_tree_h(self.tree, self._left_frame)
+        except Exception:
+            pass
 
         # right: tab-switched notebook (ドラッグ曲線 / ギアマップ)
         self._right_frame = ttk.Frame(self._paned)
@@ -625,6 +646,11 @@ class DragView(ttk.Frame):
                         self.combo.current(self._vehicle_names.index(s2))
                     except Exception:
                         pass
+            except Exception:
+                pass
+            try:
+                if _fix_combo is not None and hasattr(self, "combo"):
+                    _fix_combo(self.combo, self._vehicle_names, max_chars=36)
             except Exception:
                 pass
         except Exception:

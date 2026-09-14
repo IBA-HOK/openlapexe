@@ -121,10 +121,17 @@
     "torque_curve_points": 10,
     "torque_curve_rpm_range": "1000-4000",
     "governed_rpm": 4000,
-    "note": "Peak ~46Nm@2500rpm, 6.25kW@3600rpm (16.58Nm). Governor-limited; torque drops sharply above 3200rpm. Single-ratio direct drive.",
+    "note": "Peak ~46Nm@2500rpm, 6.25kW@3600rpm (16.58Nm). Governor-limited; torque drops sharply above 3200rpm. Single-ratio direct drive. REVIEWED 2026-09-13: kept mu/power at 1.35/1.4 & 0.95 (within defensible), mass fixed 185kg, torque shape kept; rental remains slower than FS125 on both tracks as required, no power/mu change needed to keep ordering (south track geometry dominant for FS125).",
     "source": "Honda GX270 spec sheet + rental kart fleet estimate, scaled from OpenLAP F1/GT baseline (cda=abs(Cd)*A=0.44)",
-    "created": "2026-09-12",
-    "creator": "openlapexe Task 5",
-    "license": "GPLv3"
+    "created": "2026-09-13",
+    "creator": "openlapexe Task calibration 2026-09-13",
+    "license": "GPLv3",
+    "tuning": {
+      "kept_mu_x": 1.35,
+      "kept_mu_y": 1.4,
+      "kept_power_factor": 0.95,
+      "mass_kg_fixed": 185,
+      "torque_shape": "kept family"
+    }
   }
 }

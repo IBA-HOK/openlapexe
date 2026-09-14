@@ -22,6 +22,12 @@ from tkinter import ttk, messagebox
 import math
 
 try:
+    from openlapexe.gui.combobox_fix import fix_combobox as _fix_combo, fix_treeview_horizontal as _fix_tree_h  # type: ignore
+except Exception:
+    _fix_combo = None  # type: ignore
+    _fix_tree_h = None  # type: ignore
+
+try:
     from openlapexe.io import resource_path as _resource_path  # type: ignore
 except Exception:  # fallback
     import sys
@@ -175,6 +181,11 @@ class TrackView2(ttk.Frame):
         try:
             self.combo.bind("<FocusIn>", lambda _e: self.refresh_tracks())
             self.combo.bind("<Button-1>", lambda _e: self.refresh_tracks())
+        except Exception:
+            pass
+        try:
+            if _fix_combo is not None:
+                _fix_combo(self.combo, self._track_stems, max_chars=40)
         except Exception:
             pass
 
@@ -364,9 +375,19 @@ class TrackView2(ttk.Frame):
             self.sector_table.column(col, width=w, anchor="center")
         # scrollbar
         vsb = ttk.Scrollbar(self._sector_frame, orient="vertical", command=self.sector_table.yview)
-        self.sector_table.configure(yscrollcommand=vsb.set)
+        hsb = ttk.Scrollbar(self._sector_frame, orient="horizontal", command=self.sector_table.xview)
+        self.sector_table.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
         self.sector_table.pack(side="left", fill="both", expand=True)
         vsb.pack(side="right", fill="y")
+        try:
+            hsb.pack(side="bottom", fill="x")
+        except Exception:
+            pass
+        try:
+            if _fix_tree_h is not None:
+                _fix_tree_h(self.sector_table, self._sector_frame)
+        except Exception:
+            pass
 
         # also keep fallback labels for tests that search text
         self._sector_text_var = tk.StringVar(value="")
@@ -486,6 +507,11 @@ class TrackView2(ttk.Frame):
                         self.combo.current(vals.index(s2))
                     except Exception:
                         pass
+            except Exception:
+                pass
+            try:
+                if _fix_combo is not None and hasattr(self, "combo"):
+                    _fix_combo(self.combo, vals, max_chars=40)
             except Exception:
                 pass
         except Exception:

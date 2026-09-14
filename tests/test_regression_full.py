@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
-"""Full solver regression: spa_f1_full_baseline ≈101.17s ±0.5% and determinism.
+"""Full solver regression: spa_f1_full_baseline ≈101.104s ±0.5% and determinism.
 
 TDD red→green for simulate_full baseline lock.
-New baseline: data/reference/spa_f1_full_baseline.txt (measured 101.17879935516551 at 50Hz).
-Old baseline data/reference/spa_f1_baseline.txt=101.17 is retained as previous_baseline.
+New baseline: data/reference/spa_f1_full_baseline.txt (measured 101.10435359601342 at 50Hz racing).
+Old baseline data/reference/spa_f1_baseline.txt=101.17 is retained as previous_baseline (centerline 101.178799).
 Previous buggy baseline 95.80591391534297 is documented as previous_buggy.
 """
 from __future__ import annotations
@@ -34,9 +34,9 @@ def test_full_baseline_file_exists_and_utf8() -> None:
     assert not raw.startswith("\ufeff"), "BOM detected, should be plain utf-8"
     # first token is float
     val = float(raw.strip().split()[0])
-    # plausible range now 100.66-101.68 ±0.5% around 101.17
+    # plausible range now 100.598-101.609 ±0.5% around 101.104 (racing), keep outer 90-110
     assert 90.0 <= val <= 110.0, f"full baseline {val} out of plausible range"
-    assert 100.0 <= val <= 102.5, f"full baseline {val} not near 101.17"
+    assert 100.0 <= val <= 102.5, f"full baseline {val} not near 101.10"
     # ensure old baseline still exists unchanged
     assert BASELINE_OLD_PATH.exists()
     old = _read_baseline(BASELINE_OLD_PATH)

@@ -1,0 +1,356 @@
+{
+  "track": "sugo_west",
+  "track_length_m": 984,
+  "description": "SUGO International West Course (984m) - extracted rental-kart best laps + 125cc/KT racing course records from official SUGO PDFs",
+  "fetched_at": "2026-09-13",
+  "sources": {
+    "sodi_ranking": "https://www.sportsland-sugo.co.jp/race/docs/9e486ff0fa8858de6467d36de98d3a651d5e4c54.pdf",
+    "course_records": "https://www.sportsland-sugo.co.jp/assets/docs/results/course_record_nishi.pdf",
+    "rental_ranking": "https://www.sportsland-sugo.co.jp/news/docs/5f96f4ac8c1c874fab540c53cb55879309733872.pdf"
+  },
+  "local_files": [
+    "data/reference/sugo/9e486ff0fa8858de6467d36de98d3a651d5e4c54.pdf",
+    "data/reference/sugo/course_record_nishi.pdf",
+    "data/reference/sugo/5f96f4ac8c1c874fab540c53cb55879309733872.pdf"
+  ],
+  "provenance": {
+    "fetch_method": "urllib.request with Mozilla UA, SSL default context",
+    "pdf_parser": "pypdf + pdftotext -layout for verification",
+    "time_format": "SS\"mmm or M\"SS\"mmm (e.g. 58\"910 = 58.910s, 1\"01\"282 = 61.282s) → seconds float",
+    "note": "All numbers transcribed verbatim; no inventions. If a PDF unreachable/unparseable would be recorded here (all 3 reachable and parseable)."
+  },
+  "context": {
+    "current_sim_rental_s": 58.604,
+    "current_sim_fs125_s": 41.33,
+    "suzuka_south_reference": {
+      "OK": 44.417,
+      "FS-125": 48.932,
+      "Shifter": 46.335,
+      "source": "suzukacircuit.jp (given in task)"
+    }
+  },
+  "records": [
+    {
+      "class": "SODI rental (West Time Attack Ranking 2025/9/13)",
+      "class_ja": "ソディカート",
+      "best_lap_s": 58.91,
+      "best_lap_str": "58\"910",
+      "driver": "佐藤 和之",
+      "date": "2025-09-10",
+      "source_url": "https://www.sportsland-sugo.co.jp/race/docs/9e486ff0fa8858de6467d36de98d3a651d5e4c54.pdf",
+      "source_file": "data/reference/sugo/9e486ff0fa8858de6467d36de98d3a651d5e4c54.pdf",
+      "note": "1位 SODI rental ranking; 2位 59\"771 中野剛 same date; positions 3-10 vacant"
+    },
+    {
+      "class": "キッズカート",
+      "best_lap_s": 61.282,
+      "best_lap_str": "1\"01\"282",
+      "driver": "横山 和永",
+      "date": "2025-10-13",
+      "source_url": "https://www.sportsland-sugo.co.jp/news/docs/5f96f4ac8c1c874fab540c53cb55879309733872.pdf",
+      "source_file": "data/reference/sugo/5f96f4ac8c1c874fab540c53cb55879309733872.pdf",
+      "note": "Kids Kart 1位 👑"
+    },
+    {
+      "class": "高校生以下",
+      "best_lap_s": 58.065,
+      "best_lap_str": "58\"065",
+      "driver": "佐々木 アレックス",
+      "date": "2025-10-19",
+      "source_url": "https://www.sportsland-sugo.co.jp/news/docs/5f96f4ac8c1c874fab540c53cb55879309733872.pdf",
+      "source_file": "data/reference/sugo/5f96f4ac8c1c874fab540c53cb55879309733872.pdf",
+      "note": "High school & below 1位 👑"
+    },
+    {
+      "class": "大人（50kg以上～60kg未満）",
+      "best_lap_s": 54.693,
+      "best_lap_str": "54\"693",
+      "driver": "宮崎 誠",
+      "date": "2025-10-19",
+      "source_url": "https://www.sportsland-sugo.co.jp/news/docs/5f96f4ac8c1c874fab540c53cb55879309733872.pdf",
+      "source_file": "data/reference/sugo/5f96f4ac8c1c874fab540c53cb55879309733872.pdf",
+      "note": "Adult 50-60kg 1位 👑 - absolute fastest rental adult in this ranking"
+    },
+    {
+      "class": "大人（60kg以上）",
+      "best_lap_s": 55.329,
+      "best_lap_str": "55\"329",
+      "driver": "伊藤 修",
+      "date": "2025-10-13",
+      "source_url": "https://www.sportsland-sugo.co.jp/news/docs/5f96f4ac8c1c874fab540c53cb55879309733872.pdf",
+      "source_file": "data/reference/sugo/5f96f4ac8c1c874fab540c53cb55879309733872.pdf",
+      "note": "Adult 60kg+ 1位 👑"
+    },
+    {
+      "class": "レディース",
+      "best_lap_s": 55.755,
+      "best_lap_str": "55\"755",
+      "driver": "山口 心愛",
+      "date": "2025-10-15",
+      "source_url": "https://www.sportsland-sugo.co.jp/news/docs/5f96f4ac8c1c874fab540c53cb55879309733872.pdf",
+      "source_file": "data/reference/sugo/5f96f4ac8c1c874fab540c53cb55879309733872.pdf",
+      "note": "Ladies 1位 👑"
+    },
+    {
+      "class": "レンタルカート (Course Record)",
+      "class_ja": "レンタルカート",
+      "best_lap_s": 52.01,
+      "best_lap_str": "52\"010",
+      "driver": "LEON NAKAZIMA",
+      "date": null,
+      "source_url": "https://www.sportsland-sugo.co.jp/assets/docs/results/course_record_nishi.pdf",
+      "source_file": "data/reference/sugo/course_record_nishi.pdf",
+      "note": "West course rental kart course record listed under 【レンタルカート】 on page 2; no date given in PDF (course record sheet updated 2020-09-04 for bikes / 2023-10-20 for karts)"
+    },
+    {
+      "class": "OK",
+      "best_lap_s": 36.777,
+      "best_lap_str": "36\"777",
+      "driver": "小田 優",
+      "date": "2022-06-25",
+      "source_url": "https://www.sportsland-sugo.co.jp/assets/docs/results/course_record_nishi.pdf",
+      "source_file": "data/reference/sugo/course_record_nishi.pdf",
+      "note": "Drago CORSE/TM 2022 Autobacs All Japan Kart OK Rd3-4 Time Trial ★2022 record"
+    },
+    {
+      "class": "KF1 (Super KF)",
+      "best_lap_s": 37.88,
+      "best_lap_str": "37\"880",
+      "driver": "平木 湧也",
+      "date": "2011-08-20",
+      "source_url": "https://www.sportsland-sugo.co.jp/assets/docs/results/course_record_nishi.pdf",
+      "source_file": "data/reference/sugo/course_record_nishi.pdf",
+      "note": "TONY KART/VORTEX"
+    },
+    {
+      "class": "KF2",
+      "best_lap_s": 38.585,
+      "best_lap_str": "38\"585",
+      "driver": "髙橋 翼",
+      "date": "2009-06-07",
+      "source_url": "https://www.sportsland-sugo.co.jp/assets/docs/results/course_record_nishi.pdf",
+      "source_file": "data/reference/sugo/course_record_nishi.pdf",
+      "note": "KOSMIC/VORTEX"
+    },
+    {
+      "class": "(全)FS-125",
+      "best_lap_s": 39.218,
+      "best_lap_str": "39\"218",
+      "driver": "澤 龍之介",
+      "date": "2017-04-22",
+      "source_url": "https://www.sportsland-sugo.co.jp/assets/docs/results/course_record_nishi.pdf",
+      "source_file": "data/reference/sugo/course_record_nishi.pdf",
+      "note": "Drago Corse/IAME 2017 JAF All Japan F East Rd1 Time Trial"
+    },
+    {
+      "class": "(地)FS-125",
+      "best_lap_s": 40.07,
+      "best_lap_str": "40\"070",
+      "driver": "菅波 冬悟",
+      "date": "2009-09-06",
+      "source_url": "https://www.sportsland-sugo.co.jp/assets/docs/results/course_record_nishi.pdf",
+      "source_file": "data/reference/sugo/course_record_nishi.pdf",
+      "note": "birel/IAME 2009 JAF Regional E Rd5"
+    },
+    {
+      "class": "(全)FP-3",
+      "best_lap_s": 43.309,
+      "best_lap_str": "43\"309",
+      "driver": "髙田 陽大",
+      "date": "2022-06-26",
+      "source_url": "https://www.sportsland-sugo.co.jp/assets/docs/results/course_record_nishi.pdf",
+      "source_file": "data/reference/sugo/course_record_nishi.pdf",
+      "note": "birelART/YAMAHA ★2022 record"
+    },
+    {
+      "class": "(地)FS-3",
+      "best_lap_s": 43.459,
+      "best_lap_str": "43\"459",
+      "driver": "岸 高宏",
+      "date": "2012-06-03",
+      "source_url": "https://www.sportsland-sugo.co.jp/assets/docs/results/course_record_nishi.pdf",
+      "source_file": "data/reference/sugo/course_record_nishi.pdf",
+      "note": "TOP KART/YAMAHA"
+    },
+    {
+      "class": "FP-Jr",
+      "best_lap_s": 42.381,
+      "best_lap_str": "42\"381",
+      "driver": "上原 拓和",
+      "date": "2015-04-25",
+      "source_url": "https://www.sportsland-sugo.co.jp/assets/docs/results/course_record_nishi.pdf",
+      "source_file": "data/reference/sugo/course_record_nishi.pdf",
+      "note": "TONY KART/YAMAHA ASIA-PACIFIC JAF CUP"
+    },
+    {
+      "class": "FP-Jr Cadets",
+      "best_lap_s": 45.753,
+      "best_lap_str": "45\"753",
+      "driver": "関口 瞬",
+      "date": "2022-06-25",
+      "source_url": "https://www.sportsland-sugo.co.jp/assets/docs/results/course_record_nishi.pdf",
+      "source_file": "data/reference/sugo/course_record_nishi.pdf",
+      "note": "PAROLIN/YAMAHA ★2022"
+    },
+    {
+      "class": "ジュニア",
+      "best_lap_s": 43.085,
+      "best_lap_str": "43\"085",
+      "driver": "中西 凛音",
+      "date": "2023-10-01",
+      "source_url": "https://www.sportsland-sugo.co.jp/assets/docs/results/course_record_nishi.pdf",
+      "source_file": "data/reference/sugo/course_record_nishi.pdf",
+      "note": "ENERGY CORSE/YAMAHA ★2023"
+    },
+    {
+      "class": "ジュニアカデット",
+      "best_lap_s": 45.693,
+      "best_lap_str": "45\"693",
+      "driver": "中井 星那",
+      "date": "2023-10-01",
+      "source_url": "https://www.sportsland-sugo.co.jp/assets/docs/results/course_record_nishi.pdf",
+      "source_file": "data/reference/sugo/course_record_nishi.pdf",
+      "note": "TONY KART/YAMAHA ★2023"
+    },
+    {
+      "class": "EV",
+      "best_lap_s": 41.011,
+      "best_lap_str": "41\"011",
+      "driver": "中川 賢太",
+      "date": "2023-06-25",
+      "source_url": "https://www.sportsland-sugo.co.jp/assets/docs/results/course_record_nishi.pdf",
+      "source_file": "data/reference/sugo/course_record_nishi.pdf",
+      "note": "CRG/TOM'S ★2023"
+    },
+    {
+      "class": "X30",
+      "best_lap_s": 39.568,
+      "best_lap_str": "39\"568",
+      "driver": "西村 拓真",
+      "date": "2014-10-12",
+      "source_url": "https://www.sportsland-sugo.co.jp/assets/docs/results/course_record_nishi.pdf",
+      "source_file": "data/reference/sugo/course_record_nishi.pdf",
+      "note": "FA KART/IAME"
+    },
+    {
+      "class": "MAX",
+      "best_lap_s": 38.976,
+      "best_lap_str": "38\"976",
+      "driver": "菊地 晃功",
+      "date": "2023-04-23",
+      "source_url": "https://www.sportsland-sugo.co.jp/assets/docs/results/course_record_nishi.pdf",
+      "source_file": "data/reference/sugo/course_record_nishi.pdf",
+      "note": "croc promotion/ROTAX ★2023"
+    },
+    {
+      "class": "YAMAHA SSレジェンド",
+      "best_lap_s": 44.438,
+      "best_lap_str": "44\"438",
+      "driver": "守谷 洋",
+      "date": "2021-11-07",
+      "source_url": "https://www.sportsland-sugo.co.jp/assets/docs/results/course_record_nishi.pdf",
+      "source_file": "data/reference/sugo/course_record_nishi.pdf",
+      "note": "REDSPEED/YAMAHA"
+    },
+    {
+      "class": "YAMAHA スーパーSS",
+      "best_lap_s": 42.81,
+      "best_lap_str": "42\"810",
+      "driver": "阿部 浩弥",
+      "date": "2016-10-16",
+      "source_url": "https://www.sportsland-sugo.co.jp/assets/docs/results/course_record_nishi.pdf",
+      "source_file": "data/reference/sugo/course_record_nishi.pdf",
+      "note": "TONY/YAMAHA"
+    },
+    {
+      "class": "YAMAHA SS",
+      "best_lap_s": 42.368,
+      "best_lap_str": "42\"368",
+      "driver": "伊藤 慎之典",
+      "date": "2016-06-12",
+      "source_url": "https://www.sportsland-sugo.co.jp/assets/docs/results/course_record_nishi.pdf",
+      "source_file": "data/reference/sugo/course_record_nishi.pdf",
+      "note": "KOSMIC/YAMAHA"
+    },
+    {
+      "class": "YAMAHA SSジュニア",
+      "best_lap_s": 44.084,
+      "best_lap_str": "44\"084",
+      "driver": "中村 祐隼",
+      "date": "2023-04-23",
+      "source_url": "https://www.sportsland-sugo.co.jp/assets/docs/results/course_record_nishi.pdf",
+      "source_file": "data/reference/sugo/course_record_nishi.pdf",
+      "note": "TONY KART/YAMAHA ★2023"
+    },
+    {
+      "class": "PRD Avanti",
+      "best_lap_s": 42.711,
+      "best_lap_str": "42\"711",
+      "driver": "菅井 厚志",
+      "date": "2011-11-20",
+      "source_url": "https://www.sportsland-sugo.co.jp/assets/docs/results/course_record_nishi.pdf",
+      "source_file": "data/reference/sugo/course_record_nishi.pdf",
+      "note": "CRG/PRD"
+    },
+    {
+      "class": "YAMAHA TIA",
+      "best_lap_s": 43.613,
+      "best_lap_str": "43\"613",
+      "driver": "小林 利徠斗",
+      "date": "2017-05-07",
+      "source_url": "https://www.sportsland-sugo.co.jp/assets/docs/results/course_record_nishi.pdf",
+      "source_file": "data/reference/sugo/course_record_nishi.pdf",
+      "note": "TIA/YAMAHA"
+    },
+    {
+      "class": "SUGO FDオープン",
+      "best_lap_s": 44.022,
+      "best_lap_str": "44\"022",
+      "driver": "大和田 夢翔",
+      "date": "2022-03-27",
+      "source_url": "https://www.sportsland-sugo.co.jp/assets/docs/results/course_record_nishi.pdf",
+      "source_file": "data/reference/sugo/course_record_nishi.pdf",
+      "note": "Drago CORSE/YAMAHA ★2022"
+    },
+    {
+      "class": "YAMAHA TIAジュニア",
+      "best_lap_s": 44.115,
+      "best_lap_str": "44\"115",
+      "driver": "加納 康雅",
+      "date": "2018-10-21",
+      "source_url": "https://www.sportsland-sugo.co.jp/assets/docs/results/course_record_nishi.pdf",
+      "source_file": "data/reference/sugo/course_record_nishi.pdf",
+      "note": "TIA/YAMAHA"
+    },
+    {
+      "class": "YAMAHA カデットオープン",
+      "best_lap_s": 44.333,
+      "best_lap_str": "44\"333",
+      "driver": "酒井 龍太郎",
+      "date": "2021-11-07",
+      "source_url": "https://www.sportsland-sugo.co.jp/assets/docs/results/course_record_nishi.pdf",
+      "source_file": "data/reference/sugo/course_record_nishi.pdf",
+      "note": "PAROLIN/YAMAHA"
+    },
+    {
+      "class": "YAMAHA TRYカデット",
+      "best_lap_s": 45.347,
+      "best_lap_str": "45\"347",
+      "driver": "遠藤 直人",
+      "date": "2015-11-01",
+      "source_url": "https://www.sportsland-sugo.co.jp/assets/docs/results/course_record_nishi.pdf",
+      "source_file": "data/reference/sugo/course_record_nishi.pdf",
+      "note": "TRY/YAMAHA"
+    },
+    {
+      "class": "レディス",
+      "best_lap_s": 43.388,
+      "best_lap_str": "43\"388",
+      "driver": "和田 亜里沙",
+      "date": "2009-10-04",
+      "source_url": "https://www.sportsland-sugo.co.jp/assets/docs/results/course_record_nishi.pdf",
+      "source_file": "data/reference/sugo/course_record_nishi.pdf",
+      "note": "INTREPID/YAMAHA"
+    }
+  ]
+}

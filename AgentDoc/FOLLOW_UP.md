@@ -4,7 +4,7 @@
 
 ## 1. GUI/UX
 
-- [ ] `App2` メニュー拡張: `File > Export`（CSV 11列の他に JSON/Parquet 選択）、`View > Theme`（light/dark 切替）、`Help > Docs`（`docs/regression_notes.md` を別ウィンドウで表示）
+- [ ] `App2` メニュー拡張: `File > Export`（CSV 11列の他に JSON/Parquet 選択）、`View > Theme`（light/dark 切替）、`Help > Docs`（`AgentDoc/docs/regression_notes.md` を別ウィンドウで表示）
 - [ ] キーボードショートカット: `Ctrl+R` Run、`Ctrl+S` Save、`Ctrl+E` Export、`Esc` 進捗キャンセル
 - [ ] 4タブ間の選択同期: `TrackView2` でコースを切替えたら `SimulateView2` の `track_combo` も追従（逆も）、`VehicleEditor47` 保存後に `SimulateView2`/`DragView` の車両リストを自動リロード
 - [ ] HiDPI / スケーリング検証: `tk.call('tk', 'scaling', ...)` の明示設定と `Canvas` 再描画の解像度テスト（4K/スケール125%）
@@ -42,7 +42,7 @@
 
 - [ ] `app.spec` のプラットフォーム別最適化: Windows `icon`/`version` リソース、macOS `bundle` 識別子、`--add-data` のパス区切り（`;` vs `:`）自動切替
 - [ ] CIでの `pyinstaller` 成果物検証: `pytest -q` 後に `pyinstaller app.spec` を実行し `dist/OpenLAPexe --help` 相当のスモークテスト（ヘッドレスでは `xvfb-run`）
-- [ ] 署名/公証: Windows `signtool`、macOS `codesign`/`notarytool` の手順書を `docs/build.md` に分離
+- [ ] 署名/公証: Windows `signtool`、macOS `codesign`/`notarytool` の手順書を `AgentDoc/docs/build.md` に分離
 - [ ] `requirements.txt` / `pyproject.toml` の同期チェック: `pip-compile` 的な依存ロックファイル生成（`numpy` のみだが再現性確保）
 
 ## 7. テスト/品質
@@ -54,8 +54,8 @@
 
 ## 8. ドキュメント/運用
 
-- [ ] `docs/architecture.md`: `src/openlapexe` の依存グラフ（`vehicle` → `drag` → `solver` → `gui`）と `app.py` shim の位置づけ
-- [ ] `docs/build.md`: `pyinstaller` のトラブル（`hiddenimports` 追加基準、`datas` の相対パス解決、`--windowed` での `stdout None` ガード）
+- [ ] `AgentDoc/docs/architecture.md`: `src/openlapexe` の依存グラフ（`vehicle` → `drag` → `solver` → `gui`）と `app.py` shim の位置づけ
+- [ ] `AgentDoc/docs/build.md`: `pyinstaller` のトラブル（`hiddenimports` 追加基準、`datas` の相対パス解決、`--windowed` での `stdout None` ガード）
 - [ ] `CONTRIBUTING.md`: コミット規約（`conventional commits`）、`pytest -q` 必須、`scipy`/`matplotlib` 追加禁止の明記
 - [ ] 多言語化の下地: `gettext` 的な文字列外部化（現状は日本語ハードコード、`_()` ラップのみ準備）
 

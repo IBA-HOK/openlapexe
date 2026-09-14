@@ -248,8 +248,8 @@ def test_existing_attributes_preserved() -> None:
 
 
 def test_docs_graph_placement_exists() -> None:
-    p = ROOT / "docs/graph_placement.md"
-    assert p.exists(), "docs/graph_placement.md missing"
+    p = ROOT / "AgentDoc/docs/graph_placement.md"
+    assert p.exists(), "AgentDoc/docs/graph_placement.md missing"
     txt = p.read_text(encoding="utf-8")
     assert "per-tab" in txt.lower() or "per-tab" in txt.lower() or "方式" in txt
     assert "simulate" in txt.lower() or "Simulate" in txt

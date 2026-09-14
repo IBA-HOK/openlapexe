@@ -52,6 +52,11 @@ except Exception:
 
 # solver import (for patchability, import module not direct function)
 try:
+    from openlapexe.gui.combobox_fix import fix_combobox as _fix_combo  # type: ignore
+except Exception:
+    _fix_combo = None  # type: ignore
+
+try:
     import openlapexe.solver as _solver_mod  # type: ignore
 except Exception:
     _solver_mod = None  # type: ignore
@@ -202,6 +207,11 @@ class SimulateView2(ttk.Frame):
                         pass
             except Exception:
                 pass
+            try:
+                if _fix_combo is not None and hasattr(self, "track_combo"):
+                    _fix_combo(self.track_combo, self._track_names, max_chars=40)
+            except Exception:
+                pass
         except Exception:
             pass
 
@@ -262,6 +272,11 @@ class SimulateView2(ttk.Frame):
                         self.vehicle_combo.current(self._vehicle_names.index(s2))
                     except Exception:
                         pass
+            except Exception:
+                pass
+            try:
+                if _fix_combo is not None and hasattr(self, "vehicle_combo"):
+                    _fix_combo(self.vehicle_combo, self._vehicle_names, max_chars=36)
             except Exception:
                 pass
         except Exception:
@@ -429,6 +444,12 @@ class SimulateView2(ttk.Frame):
         self.combo_freq = self.freq_combo
         try:
             self.freq_combo.set("50")
+        except Exception:
+            pass
+        try:
+            if _fix_combo is not None:
+                _fix_combo(self.vehicle_combo, self._vehicle_names, max_chars=36)
+                _fix_combo(self.track_combo, self._track_names, max_chars=40)
         except Exception:
             pass
 

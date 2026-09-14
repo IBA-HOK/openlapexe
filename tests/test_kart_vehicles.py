@@ -80,7 +80,11 @@ def test_kart_mvp_and_single_ratio():
 
 def test_f1_spa_unchanged_guard():
     spa = json.loads((ROOT / "data" / "tracks" / "spa.json").read_text(encoding="utf-8"))
-    assert spa["length_m"] == 6953.611
+    spc = json.loads((ROOT / "data" / "tracks" / "spa_centerline.json").read_text(encoding="utf-8"))
+    assert abs(spa["length_m"] - 6953.247) < 1.0
+    assert spc["length_m"] == 6953.611
+    assert "コース中心線" not in spa.get("name", "")
+    assert "コース中心線" in spc.get("name", "")
     f1 = json.loads((ROOT / "data" / "vehicles" / "f1.json").read_text(encoding="utf-8"))
     assert f1["mass_kg"] == 650
     assert f1["M"] == 650
