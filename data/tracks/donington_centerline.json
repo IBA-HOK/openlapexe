@@ -15793,5 +15793,15 @@
       "sector_id": 3
     }
   ],
-  "logged": false
+  "logged": false,
+  "meta": {
+    "zone": null,
+    "note": "local-frame",
+    "zone_note": "local-frame",
+    "schema_version": "2",
+    "fia_status": "FAIL -1.95% (National 3942m, not GP4020)",
+    "fia_reference_m": 4020,
+    "layout": "National",
+    "recommended_action": "See docs/donington_decision.md Option B (new GP trace, follow-up task, est 1-2 days)"
+  }
 }

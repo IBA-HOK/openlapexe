@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""TDD audit: FINDINGS_verified.md must match src/openlapexe/geo_tile.py constants.
+"""TDD audit: AgentDoc/FINDINGS_verified.md must match src/openlapexe/geo_tile.py constants.
 
 RED phase: parses md and asserts values equal imported geo_tile constants.
 Currently fails on 0.5/2.0 and single _LOCK.
@@ -10,9 +10,9 @@ import pathlib
 import re
 
 def _read_md() -> str:
-    p = pathlib.Path("FINDINGS_verified.md")
+    p = pathlib.Path("AgentDoc/FINDINGS_verified.md")
     if not p.exists():
-        p = pathlib.Path(__file__).resolve().parents[1] / "FINDINGS_verified.md"
+        p = pathlib.Path(__file__).resolve().parents[1] / "AgentDoc/FINDINGS_verified.md"
     return p.read_text(encoding="utf-8")
 
 def _parse_interval(md: str) -> float | None:
@@ -39,9 +39,9 @@ def test_findings_min_interval_matches_code() -> None:
     from openlapexe.geo_tile import MIN_INTERVAL
     md = _read_md()
     parsed = _parse_interval(md)
-    assert parsed is not None, "FINDINGS_verified.md: could not parse MIN_INTERVAL value"
+    assert parsed is not None, "AgentDoc/FINDINGS_verified.md: could not parse MIN_INTERVAL value"
     assert parsed == MIN_INTERVAL, (
-        f"FINDINGS_verified.md MIN_INTERVAL={parsed} != code MIN_INTERVAL={MIN_INTERVAL}. "
+        f"AgentDoc/FINDINGS_verified.md MIN_INTERVAL={parsed} != code MIN_INTERVAL={MIN_INTERVAL}. "
         f"Doc stale (expected 0.1, found 0.5 drift)."
     )
 
@@ -49,9 +49,9 @@ def test_findings_timeout_matches_code() -> None:
     from openlapexe.geo_tile import TIMEOUT
     md = _read_md()
     parsed = _parse_timeout(md)
-    assert parsed is not None, "FINDINGS_verified.md: could not parse TIMEOUT value"
+    assert parsed is not None, "AgentDoc/FINDINGS_verified.md: could not parse TIMEOUT value"
     assert parsed == TIMEOUT, (
-        f"FINDINGS_verified.md TIMEOUT={parsed} != code TIMEOUT={TIMEOUT}. "
+        f"AgentDoc/FINDINGS_verified.md TIMEOUT={parsed} != code TIMEOUT={TIMEOUT}. "
         f"Doc stale (expected 1.0, found 2.0 drift)."
     )
 
@@ -71,7 +71,7 @@ def test_findings_locks_split_documented() -> None:
             assert "無し" not in line, f"split row still 無し (stale): {line}"
             found_split_row = True
             break
-    assert found_split_row, "FINDINGS_verified.md missing _LRU_LOCK/_THROTTLE_LOCK split row"
+    assert found_split_row, "AgentDoc/FINDINGS_verified.md missing _LRU_LOCK/_THROTTLE_LOCK split row"
     # Snippet must show split locks, not single _LOCK
     # Extract code block for geo_tile snippet (MAX_CACHE_ENTRIES block)
     # Require snippet contains both _LRU_LOCK and _THROTTLE_LOCK definitions
@@ -89,11 +89,11 @@ def test_findings_placeholder_contract_documented() -> None:
     md = _read_md()
     from openlapexe.geo_tile import PLACEHOLDER_PNG
     assert isinstance(PLACEHOLDER_PNG, (bytes, bytearray)) and len(PLACEHOLDER_PNG) > 0
-    assert "PLACEHOLDER_PNG" in md, "FINDINGS_verified.md missing PLACEHOLDER_PNG placeholder contract"
+    assert "PLACEHOLDER_PNG" in md, "AgentDoc/FINDINGS_verified.md missing PLACEHOLDER_PNG placeholder contract"
     has_row = False
     for line in md.splitlines():
         if "PLACEHOLDER" in line or "placeholder" in line.lower():
             if "有り" in line:
                 has_row = True
                 break
-    assert has_row, "FINDINGS_verified.md should document placeholder as 有り (immediate return on failure)"
+    assert has_row, "AgentDoc/FINDINGS_verified.md should document placeholder as 有り (immediate return on failure)"

@@ -1,0 +1,60 @@
+{
+  "measured": {
+    "racing_m": 3941.689,
+    "centerline_m": 3942.045,
+    "gp_nominal_m": 4020,
+    "gap_racing_m": -78.31,
+    "gap_racing_pct": -1.95,
+    "national_m": 3149,
+    "national_alt_m": 3186
+  },
+  "A": {
+    "factor": 1.01978,
+    "length_scaled": 4019.67,
+    "delta_vs_nominal_m": -0.33,
+    "curvature_effect": "curv/=1.01978",
+    "lap_delta": "+0.3s",
+    "note": "uniform stretch, distorts shape"
+  },
+  "B": {
+    "method": "new FIA GP trace via Overpass",
+    "estimate": "1-2 days",
+    "accuracy": "most accurate",
+    "deliverable": "scaffold only",
+    "note": "stitch highway=raceway ways, same pattern as suzuka 68-way stitch, keep overpass_raw.xml"
+  },
+  "C": {
+    "fia_status": "FAIL",
+    "action": "keep 3942 frozen",
+    "note": "RECOMMENDED default, no mutation, mark FAIL outside +-1% vs GP 4020m"
+  },
+  "decision_matrix": {
+    "A_vs_criteria": {
+      "hits_4020": "4019.67 delta -0.33m",
+      "shape_fidelity": "poor, uniform distortion",
+      "honesty": "low",
+      "effort": "minutes",
+      "risk": "systematic bias curv/=1.01978"
+    },
+    "B_vs_criteria": {
+      "hits_4020": "expected, to be measured",
+      "shape_fidelity": "best",
+      "honesty": "high",
+      "effort": "1-2 days",
+      "risk": "stitch/kink cleanup needed"
+    },
+    "C_vs_criteria": {
+      "hits_4020": "no, stays 3941.69/3942.05",
+      "shape_fidelity": "preserved",
+      "honesty": "high",
+      "effort": "zero",
+      "risk": "none"
+    }
+  },
+  "approvals_required": {
+    "A": "APPROVAL_REQUIRED — uniform stretch x1.01978",
+    "B": "APPROVAL_REQUIRED — new Overpass GP trace",
+    "C": "APPROVAL_REQUIRED — keep frozen + FAIL"
+  },
+  "DEFAULT": "C"
+}

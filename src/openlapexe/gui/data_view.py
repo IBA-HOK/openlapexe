@@ -17,6 +17,11 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
 try:
+    from openlapexe.gui.combobox_fix import fix_treeview_horizontal as _fix_tree_h  # type: ignore
+except Exception:
+    _fix_tree_h = None  # type: ignore
+
+try:
     from openlapexe.io import (  # type: ignore
         _atomic_write_text as _atomic_write_text,
         resource_path as _resource_path,
@@ -122,9 +127,19 @@ class DataView(ttk.Frame):
         self.tree_vehicles = self.vehicle_tree
         self.tree_vehicle = self.vehicle_tree
         vsb_v = ttk.Scrollbar(self.vehicle_frame, orient="vertical", command=self.vehicle_tree.yview)
-        self.vehicle_tree.configure(yscrollcommand=vsb_v.set)
+        hsb_v = ttk.Scrollbar(self.vehicle_frame, orient="horizontal", command=self.vehicle_tree.xview)
+        self.vehicle_tree.configure(yscrollcommand=vsb_v.set, xscrollcommand=hsb_v.set)
         self.vehicle_tree.pack(side="left", fill="both", expand=True, padx=(4, 0), pady=4)
         vsb_v.pack(side="right", fill="y", pady=4, padx=(0, 4))
+        try:
+            hsb_v.pack(side="bottom", fill="x", padx=4)
+        except Exception:
+            pass
+        try:
+            if _fix_tree_h is not None:
+                _fix_tree_h(self.vehicle_tree, self.vehicle_frame)
+        except Exception:
+            pass
         vbtn = ttk.Frame(self.vehicle_frame)
         vbtn.pack(side="right", fill="y", padx=4, pady=4)
         self.btn_vehicle_export = ttk.Button(vbtn, text="エクスポート", command=self.export_vehicle_selected)
@@ -156,9 +171,19 @@ class DataView(ttk.Frame):
         self.tree_tracks = self.track_tree
         self.tree_track = self.track_tree
         vsb_t = ttk.Scrollbar(self.track_frame, orient="vertical", command=self.track_tree.yview)
-        self.track_tree.configure(yscrollcommand=vsb_t.set)
+        hsb_t = ttk.Scrollbar(self.track_frame, orient="horizontal", command=self.track_tree.xview)
+        self.track_tree.configure(yscrollcommand=vsb_t.set, xscrollcommand=hsb_t.set)
         self.track_tree.pack(side="left", fill="both", expand=True, padx=(4, 0), pady=4)
         vsb_t.pack(side="right", fill="y", pady=4, padx=(0, 4))
+        try:
+            hsb_t.pack(side="bottom", fill="x", padx=4)
+        except Exception:
+            pass
+        try:
+            if _fix_tree_h is not None:
+                _fix_tree_h(self.track_tree, self.track_frame)
+        except Exception:
+            pass
         tbtn = ttk.Frame(self.track_frame)
         tbtn.pack(side="right", fill="y", padx=4, pady=4)
         self.btn_track_export = ttk.Button(tbtn, text="エクスポート", command=self.export_track_selected)
@@ -233,6 +258,11 @@ class DataView(ttk.Frame):
                         break
         except Exception:
             pass
+        try:
+            if _fix_tree_h is not None:
+                _fix_tree_h(self.vehicle_tree, self.vehicle_frame)
+        except Exception:
+            pass
 
     def refresh_tracks(self, select: str | None = None) -> None:
         base = _tracks_dir()
@@ -273,6 +303,11 @@ class DataView(ttk.Frame):
                         except Exception:
                             pass
                         break
+        except Exception:
+            pass
+        try:
+            if _fix_tree_h is not None:
+                _fix_tree_h(self.track_tree, self.track_frame)
         except Exception:
             pass
 

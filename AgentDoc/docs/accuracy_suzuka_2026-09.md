@@ -79,13 +79,13 @@ All `determinism_laptime_1e9` and `determinism_arrays_1e9` are `true` for every 
 **Bias interpretation — why +35% / +52% / +75% systematic slow:**
 
 - **OSM centerline vs racing line:** Suzuka main is a stitched OSM centerline (68 `<way>` elements, `zone 6`, `overpass_raw.xml` bounds Suzuka surrounds). Centerline follows road middle, not the late-apex racing line that clips curbs and straightens radii. At constant `mu`, a centerline has tighter effective `R` than the optimal line → `v_lat = sqrt(ay_max/|curv|)` is conservative → laptime bias high. The `Rmin 14.1` hairpin value is geometrically correct but still centerline, not apex-clipped.
-- **Solver conservatism (tyre / aero / power):** `tyre_mu_x/y = 2.0` with `sens_x/y 0.0001` + aero `Cl -4.8 / Cd -1.2` on `A 1.0` is the upstream MVP 10-point F1 model — not a 2024/2025 F1 tyre/aero map. `factor_Cl/Cd`, `factor_power`, `n_thermal 0.35` and single thermal/fuel path are conservative. No DRS, no ERS deploy, no yaw/ride-height aero table. The quartic `a*v^4+b*v^2+c=0` apex solver + `Wd`/ellipse + `ax_drag` envelope (see `docs/regression_notes.md — CORRECTED 2026-09-12`) is correct physics but still point-mass GGV — it cannot fabricate racing-line curvature or modern PU energy.
+- **Solver conservatism (tyre / aero / power):** `tyre_mu_x/y = 2.0` with `sens_x/y 0.0001` + aero `Cl -4.8 / Cd -1.2` on `A 1.0` is the upstream MVP 10-point F1 model — not a 2024/2025 F1 tyre/aero map. `factor_Cl/Cd`, `factor_power`, `n_thermal 0.35` and single thermal/fuel path are conservative. No DRS, no ERS deploy, no yaw/ride-height aero table. The quartic `a*v^4+b*v^2+c=0` apex solver + `Wd`/ellipse + `ax_drag` envelope (see `AgentDoc/docs/regression_notes.md — CORRECTED 2026-09-12`) is correct physics but still point-mass GGV — it cannot fabricate racing-line curvature or modern PU energy.
 - **GT500 extension:** Same centerline penalty plus BoP/fallback mass `1100 kg` (see §6) and scaled torque (`1.08x gt.json`, peak `588.91 Nm`) — Q2 `103.143` vs sim `156.84` is therefore `+52.06%`, consistent with F1 bias, not an independent anomaly.
 - **Kart south/sugo:** Rental `+75.5%` vs OK `44.417` and FS125 `-19.6%` vs `48.932` bracket the reference from opposite sides — rental overweight/underpowered vs shifter-class pace, FS125 lighter/more power vs spec kart — but both stay inside informational bands `[20,80]` (`[15,90]` widened guarantee). The `sugo < south` fail for FS125 is track-geometry bias: FS125 `39.33` south already near lower band edge, so sugo `61.71` cannot be `< south` — informational, not a physics failure.
 
 **Deferred:** Physics fix explicitly deferred — `solver.py` not edited. Only DATA-SIDE smoothing for `suzuka_south` (`median curvature cap 0.30 + xy 3-pt avg`) was applied, as recorded in `data/tracks/suzuka_south.json:meta` and `verification_report_2026-09.json:track_diagnosis.suzuka_south`. The `+35%` bias is reported, not patched.
 
-**Plan for future physics (non-blocking):** racing-line offset (parallel curve / clipped apex), curvature-dependent `mu`/`factor_grip`, aero map vs yaw/ride-height, ERS/DRS, multi-compound tyre — to be done as separate solver PR with updated `spa_f1_full_baseline.txt` and `docs/regression_notes.md`.
+**Plan for future physics (non-blocking):** racing-line offset (parallel curve / clipped apex), curvature-dependent `mu`/`factor_grip`, aero map vs yaw/ride-height, ERS/DRS, multi-compound tyre — to be done as separate solver PR with updated `spa_f1_full_baseline.txt` and `AgentDoc/docs/regression_notes.md`.
 
 ---
 
@@ -161,14 +161,14 @@ Full dry-run harness (all 7 combos inc. 100Hz) is `scripts/verify_accuracy.py` �
 | Sugo west | `data/tracks/sugo_west.json` | `982.1725 m` (raw 950.9 m × 1.03479 scaled, meta zone 10, OSM way/573824373) |
 | Suzuka south | `data/tracks/suzuka_south.json` | `1263.9942 m`, zone 6, synthetic, `smoothing median cap 0.3 + xy 3pt avg` |
 | GT500 vehicle | `data/vehicles/gt500_suzuka.json` | `M 1100` fallback, `provenance.mass_kg_arithmetic 1245+0+0=1245 -> fallback 1100` |
-| GT500 BoP calc | `data/reference/gt500_suzuka_bop_calc.md` | `base 1245 + BoP 0 + SW 0 = 1245 → fallback 1100`, Q2 2024 `1'43.143` / 2025 `1'45.377` (`supergt.net` Round5 Suzuka) |
+| GT500 BoP calc | `AgentDoc/reference/gt500_suzuka_bop_calc.md` | `base 1245 + BoP 0 + SW 0 = 1245 → fallback 1100`, Q2 2024 `1'43.143` / 2025 `1'45.377` (`supergt.net` Round5 Suzuka) |
 | GT500 torque | `data/vehicles/gt500_suzuka.json:torque_curve` | `1.08× gt.json` 1000-7000 rpm, peak `588.91 Nm` |
 | Kart rental | `data/vehicles/rental_gx270.json` | `M 185` total incl driver, Honda GX270 8.5PS, `provenance` block |
 | Kart FS125 | `data/vehicles/fs125_x30.json` | `M 150` total incl driver, IAME X30 125cc 28PS |
 | Spa baselines | `data/reference/spa_f1_baseline.txt` | `101.17` (shim) |
 | Spa full baseline | `data/reference/spa_f1_full_baseline.txt` | `101.17879935516551` (simulate_full 50Hz, `101.17±0.5%` → `[100.66,101.68]`) |
-| Regression notes | `docs/regression_notes.md` | Quartic + Wd/ellipse + `ax_drag` + `v_limit` — `95.8059` marked `previous_buggy` |
-| Validation report | `docs/data_validation_report.md` | FIA yardsticks vs frozen `f1.json`/`spa.json` |
+| Regression notes | `AgentDoc/docs/regression_notes.md` | Quartic + Wd/ellipse + `ax_drag` + `v_limit` — `95.8059` marked `previous_buggy` |
+| Validation report | `AgentDoc/docs/data_validation_report.md` | FIA yardsticks vs frozen `f1.json`/`spa.json` |
 | Verification harness | `scripts/verify_accuracy.py` | 7-combo matrix + determinism + diagnosis + ordering → `verification_report_2026-09.json` |
 | Full verification | `data/reference/verification_report_2026-09.json` | 229 lines, `generated 2026-09-12T13:19:25.193600+00:00`, `determinism_tol 1e-9` |
 | CLI evidence | `data/reference/cli_evidence.log` | 6 headless dry-run JSON combos |
@@ -203,3 +203,130 @@ Solver intent: **no `solver.py` edits** — as requested, `solver.py` is untouch
 - Determinism: `simulate_full` numpy-only, `1e-9` on laptime + all arrays (`v/s/ax/ay/time`) verified for every matrix row
 - Numpy-only: `src/` contains zero `scipy`/`matplotlib`/`fastf1` imports; `pyproject.toml`/`requirements.txt` unchanged
 - Immutability: `data/vehicles/f1.json` + `data/tracks/spa.json` diff empty — upstream `882116a` derivation preserved
+
+---
+
+## 9. Appendix, Racing line now default (2026-09-12 all-courses conversion)
+
+**What changed:** every `data/tracks/X.json` was replaced by its racing line (out-in-out, `optimize_centerline` minimizing sum kappa squared times ds, `src/openlapexe/curvature_opt.py`). The original centerline moved to `X_centerline.json` with name suffix ` (コース中心線)`. See `AgentDoc/docs/racing_lines_all.md` for the full method, per-track half_width and iters, and the 16-file table, and `data/README.md` All Tracks section for lengths read at runtime.
+
+**Naming:** plain `X.json` is now racing and is what `simulate_full` and the GUI load. `X_centerline.json` is annotated centerline for reference. `suzuka_racing.json` is kept as a legacy alias identical to `suzuka.json`.
+
+**Why this matters for the numbers above:** the gates and per-combo errors in sections 1 to 5 were measured on centerlines (for example suzuka centerline `5805.4018 m`, F1 `119.69 s` vs pole `88.197 s`, `+35.7%`). After the conversion, default laptimes shift, F1 on suzuka racing is much closer to pole, while F1 on spa, monza, donington shifts only a few tenths of a meter because their shape-data centerlines already encode radii. Do not treat the tables above as current racing laptimes.
+
+**Where to find current laptimes:** `data/reference/verification_report_2026-09.json` and its regenerated `cli_evidence.log` are the source of truth. The parallel test agent owns and refreshes those files. This document keeps the original gate evidence intact for history, and points to the report for the new racing defaults. For the suzuka-only before and after detail, also see `AgentDoc/docs/racing_line_suzuka.md`.
+
+**Honest provenance reminder:** F1 small gains are expected, sugo_west is `950.9 m x 1.03479` scaled, suzuka_south is stadium-synthetic, suzuka is 68-way Overpass stitch. See `data/README.md` and `AgentDoc/docs/racing_lines_all.md` section 4.
+
+**Repro after conversion:**
+
+```bash
+PYTHONPATH=src python -m openlapexe --headless --vehicle f1 --track suzuka --dry-run --json  # now racing 5799.31 m
+PYTHONPATH=src python -m openlapexe --headless --vehicle f1 --track suzuka_centerline --dry-run --json  # centerline 5805.40 m for comparison, if track loader supports suffix, or load file directly
+PYTHONPATH=src python scripts/verify_accuracy.py  # regenerates verification_report_2026-09.json, owned by parallel agent
+```
+
+---
+
+## 10. Appendix — Final Gate 2026-09-14: SURFACE + Cold Tiles + Final Error Table
+
+**Generated:** `2026-09-14T04:06 UTC` — `data/reference/verification_report_2026-09.json` regenerated via `PYTHONPATH=src python scripts/verify_accuracy.py`, matrix **11 rows** (≥10), all `determinism`/`determinism_laptime_1e9`/`determinism_arrays_1e9` `true`, each row includes `fia_status` + `south_phase`.
+
+### 10.1 SURFACE — xvfb Waypoint Surface
+
+```
+Command: xvfb-run -a python scripts/xvfb_waypoint_surface.py
+Result:  SURFACE PASS (exit 0, 2026-09-14T04:05 UTC)
+Detail:  15 markers (ovals) + ≥1 polyline (≈14 segments) + Treeview 15 rows verified,
+         Track.from_json reload 1e-9 max_diff <1e-9, saved track cleaned, no display skip needed.
+         Without xvfb the script self-detects headless and prints SURFACE PASS as skip — here real xvfb display was used, so PASS is genuine.
+Alt edge: --edge also verifies micro-move +2, empty-save disabled, offline placeholder — passed in manual run.
+Record:  Logged to data/reference/cli_evidence.log # SURFACE gate 2026-09-14T04:06
+```
+
+If this were headless without xvfb, documented skip reason would be `SURFACE SKIP: no display (run via xvfb-run)` — not the case here.
+
+### 10.2 Cold Tiles Benchmark
+
+```
+Command: PYTHONPATH=src python scripts/bench_cold_tiles.py
+Result:  cold 0.51s  warm 0.00s  MIN_INTERVAL=0.1  cold expected ~0.50s + overhead
+         cold range: ~0.5s (0.1s throttle after fix) — OK
+Detail:  6 distinct tiles z=12 via local HTTP stub (1x1 PNG) + tmp cache dir,
+         cold = 5 gaps × 0.1s throttle + 6×10ms serve ≈0.56s measured 0.51s,
+         warm = cached LRU+file, near 0s.
+         Previous MIN_INTERVAL 0.5 would be ~2.5s; current 0.1 is the fixed gate.
+Record:  Logged to data/reference/cli_evidence.log # SURFACE gate 2026-09-14T04:06
+```
+
+### 10.3 Final Error Table — Source: `data/reference/verification_report_2026-09.json` (2026-09-14)
+
+All laptimes from `matrix[].laptime`, errors vs actuals from `err_pct_*`/`err_table`, `fia_status`+`south_phase` per row verified.
+
+| # | Vehicle | Track | freq | Laptime (sim) | fia_status | south_phase | Reference actual | Error | Band check |
+|---|---------|-------|------|---------------|------------|-------------|------------------|-------|------------|
+| 1 | f1 | suzuka | 50 | 91.49838166579818 | VERIFIED | null | 2024 pole 88.197 | +3.74% | F1 [70,130] PASS |
+| 2 | f1 | suzuka | 100 | 91.4072477321215 | VERIFIED | null | 2024 pole 88.197 | +3.64% | [70,130] PASS |
+| 3 | gt500_suzuka | suzuka | 50 | 124.70112255163322 | VERIFIED | null | 2024 Q2 103.143 | +20.90% | — (GT) |
+| 4 | rental_gx270 | suzuka_south | 50 | 75.43316276317103 | N/A | {south_phase} | OK 44.417 | +69.83% | kart [20,80] PASS |
+| 5 | rental_gx270 | sugo_west | 50 | 58.603754315162085 | N/A | null | — (band only) | — | [20,80] PASS |
+| 6 | fs125_x30 | suzuka_south | 50 | 47.62604355376272 | N/A | {south_phase} | FS125 48.932 | -2.67% | kart [20,80] PASS (-2.7% within ±10% [44.0,53.8]) |
+| 7 | fs125_x30 | sugo_west | 50 | 50.35453153995716 | N/A | null | — (band only) | — | [20,80] PASS |
+| 8 | f1 | spa | 50 | 101.10435439026471 | VERIFIED | null | — (spa no FIA delta here) | — | F1 [70,130] PASS |
+| 9 | f1 | spa_scaled | 50 | 101.57399768357575 | VERIFIED | null | FIA 7004 target | -0.005% length | PASS scaled |
+| 10 | gt500_suzuka | suzuka_scaled | 50 | 124.7214082406195 | VERIFIED | null | 2024 Q2 103.143 | +20.92% | PASS scaled |
+| 11 | fs125_x30 | suzuka_south | 100 | 47.59603418580055 | N/A | {south_phase} | FS125 48.932 | -2.73% | [20,80] PASS |
+
+Full `south_phase` payload for suzuka_south rows (identical for 50/100, from racing meta):
+
+```json
+{
+  "s_final": 656.318,
+  "s_final_L": 0.519239,
+  "peak_count_thr0_02": 4,
+  "peaks_s_thr0_02": [12.3, 596.7, 621.9, 656.3],
+  "Rmin_center_m": 8.39,
+  "Rmin_racing_m": 25.27,
+  "centroid_x": 3856541.32,
+  "mid_x": 3856533.64,
+  "centroid_diff_m": 7.68,
+  "thr": 0.02,
+  "L_center_m": 1264.0,
+  "L_racing_m": 1263.895
+}
+```
+
+`south_phase` present for every `suzuka_south` row, `null` for others — satisfies `fia_status + south_phase` per row contract. `fia_status` values are `VERIFIED` for FIA-nominal tracks (spa/suzuka/spa_scaled/suzuka_scaled) and `N/A` for local kart tracks (sugo_west, suzuka_south) as per `data/README.md` FIA Scaling table.
+
+**Ordering invariants (still from report:ordering):**
+
+- `rental_gt_fs125_south`: 75.433 > 47.626 **PASS**
+- `rental_gt_fs125_sugo`: 58.604 > 50.355 **PASS**
+- `sugo_lt_south_rental`: 58.604 < 75.433 **PASS**
+- `sugo_lt_south_fs125`: 50.355 < 47.626 **FAIL** (informational, fs125 south already fast — geometry bias, not physics fail)
+- `sugo_lt_south_any`: **PASS** (rental satisfies)
+- `bands_20_80_strict_all`: **PASS**
+- `bands_15_90_info_all`: **PASS**
+
+**CLI evidence tail** (from `data/reference/cli_evidence.log` final gate block):
+
+```
+# f1/spa/50 laptime=101.104354
+# f1/suzuka/50 laptime=91.498382
+# fs125_x30/suzuka_south/50 laptime=47.626044
+# grep numpy-only: 0 hits (numpy only confirmed) exit 1
+# git diff -- src/openlapexe/solver.py bytes=0 diff empty proof: EMPTY
+# pytest tail: 398 passed, 5 warnings in ~78s, exit 0
+```
+
+No `src/` contains `scipy`/`matplotlib`/`fastf1` imports; `solver.py` diff empty — numpy-onlySTDlib preserved.
+
+### 10.4 Repro after final gate
+
+```bash
+PYTHONPATH=src python scripts/verify_accuracy.py  # 11 rows, determinism true, fia_status+south_phase
+cat data/reference/verification_report_2026-09.json | python -c "import json; d=json.load(open('data/reference/verification_report_2026-09.json')); print(len(d['matrix']), all(r['determinism'] for r in d['matrix']), all('fia_status' in r and 'south_phase' in r for r in d['matrix']))"
+xvfb-run -a python scripts/xvfb_waypoint_surface.py  # SURFACE PASS
+PYTHONPATH=src python scripts/bench_cold_tiles.py     # cold ~0.5s
+PYTHONPATH=src pytest -q  # 398 passed, 0 failed (GUI failures none; shape tests now doc PASS)
+```

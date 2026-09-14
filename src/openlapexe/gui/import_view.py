@@ -17,6 +17,11 @@ import pathlib
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
+try:
+    from openlapexe.gui.combobox_fix import fix_treeview_horizontal as _fix_tree_h  # type: ignore
+except Exception:
+    _fix_tree_h = None  # type: ignore
+
 import numpy as np
 
 
@@ -112,9 +117,19 @@ class ImportView(ttk.Frame):
             self.tree.heading(col, text=txt)
             self.tree.column(col, width=w, anchor="center" if col != "name" else "w")
         vsb = ttk.Scrollbar(tree_frame, orient="vertical", command=self.tree.yview)
-        self.tree.configure(yscrollcommand=vsb.set)
+        hsb = ttk.Scrollbar(tree_frame, orient="horizontal", command=self.tree.xview)
+        self.tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
         self.tree.pack(side="left", fill="both", expand=True)
         vsb.pack(side="right", fill="y")
+        try:
+            hsb.pack(side="bottom", fill="x")
+        except Exception:
+            pass
+        try:
+            if _fix_tree_h is not None:
+                _fix_tree_h(self.tree, tree_frame)
+        except Exception:
+            pass
         try:
             self.tree.bind("<Control-a>", self._on_select_all)
             self.tree.bind("<Control-A>", self._on_select_all)
@@ -278,6 +293,11 @@ class ImportView(ttk.Frame):
                 self.tree.insert("", "end", values=(name, kind, str(verts), f"{length_m:.2f}"))
             except Exception:
                 continue
+        try:
+            if _fix_tree_h is not None:
+                _fix_tree_h(self.tree, self.tree.master)
+        except Exception:
+            pass
 
     def _on_select_all(self, event: object = None) -> str:  # type: ignore[no-untyped-def]
         try:

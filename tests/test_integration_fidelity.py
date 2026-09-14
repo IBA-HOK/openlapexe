@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""D1+V1+T1+S1結合証明: solver/simulate_full('f1','spa') 50Hz lap 101.17統合.
+"""D1+V1+T1+S1結合証明: solver/simulate_full('f1','spa') 50Hz lap 101.104統合 (racing).
 
 検証内容:
 - apex摩擦楕円境界 ax_allowed = ax_max * sqrt(1-(ay/ay_max)^2)
@@ -201,9 +201,9 @@ def test_s_monotonic_v_positive_deterministic_full() -> None:
     t1 = np.asarray(r1.time, dtype=float)
     assert abs(float(t1[0])) < 1e-9
     assert np.all(np.diff(t1) > 0)
-    # laptime at 50Hz ~101.17 (spec) within 2% tolerance
+    # laptime at 50Hz ~101.104 (racing) within 2% tolerance, keep outer 90-110 guard
     assert 90.0 < float(r1.laptime) < 110.0
-    npt.assert_allclose(float(r1.laptime), 101.17, atol=2.0, rtol=0)
+    npt.assert_allclose(float(r1.laptime), 101.10435359601342, atol=2.0, rtol=0)
     # deterministic 1e-9 for all arrays
     for name in ("s", "v", "ax", "ay", "time", "sector", "gear", "rpm", "tps", "energy", "fuel"):
         a1 = np.asarray(getattr(r1, name), dtype=float)

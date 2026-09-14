@@ -79,7 +79,7 @@ Current simulator baselines on the same `f1 + spa` pair:
 * `app.simulate('f1','spa')` simplified point mass QSS, single `final_drive`, plane track, `freq` independent: 101.17 s (`data/reference/spa_f1_baseline.txt`), allowed ±0.5 percent [100.66, 101.68].
 * `openlapexe.solver.simulate_full('f1','spa', 50)` full 47 item vehicle, banking and grip, Pchip curvature, multi gear, energy integration, `freq` respected `step = 100/freq`: 95.81 s (`data/reference/spa_f1_full_baseline.txt`), allowed ±0.5 percent [95.33, 96.29].
 
-So the simplified baseline sits +0.61 s (+0.6 percent) above the real pole, the full baseline sits -4.75 s (-4.7 percent) below it. The two baselines differ by -5.36 s, which `docs/regression_notes.md` breaks down as `D1 0 s` (OpenDRAG split, no physics change) plus `V1 -1.5 to -2.0 s` (47 item vehicle and CoG load transfer) plus `T1 -0.8 to -1.2 s` (banking, grip, Pchip) plus `S1 -2.2 to -2.8 s` (freq respected mesh, multi gear, energy).
+So the simplified baseline sits +0.61 s (+0.6 percent) above the real pole, the full baseline sits -4.75 s (-4.7 percent) below it. The two baselines differ by -5.36 s, which `AgentDoc/docs/regression_notes.md` breaks down as `D1 0 s` (OpenDRAG split, no physics change) plus `V1 -1.5 to -2.0 s` (47 item vehicle and CoG load transfer) plus `T1 -0.8 to -1.2 s` (banking, grip, Pchip) plus `S1 -2.2 to -2.8 s` (freq respected mesh, multi gear, energy).
 
 That tells you where to look. The data themselves are stable and reproduce the upstream sheets, the lap time moves when the solver fidelity moves.
 
@@ -103,12 +103,12 @@ That tells you where to look. The data themselves are stable and reproduce the u
 
 3. **Track deltas are within tolerance and solver sensitive.** Length within 1 percent and elevation within 1 percent are already inside the validation guard `6933 to 7075 m` in `tests/test_data_schema.py`. Grade and corner count differences come from interpolation choices (Pchip versus linear, 2 m mesh, `banking_rad` smoothing). Those choices live in `src/openlapexe/solver.py` and `src/openlapexe/track.py`, not in the JSON points.
 
-4. **Lap time moves with solver, not with data edits.** The -5.36 s shift from 101.17 s to 95.81 s came from solver changes alone (V1, T1, S1) while the data files did not change. That is direct evidence that the solver dominates realism. Further realism work belongs in the solver: load dependent mu, CoG transfer already added in V1, full ERS and DRS models, aero maps that vary with ride height and yaw, and proper combined slip handling, with updated `data/reference/*baseline.txt` values and notes in `docs/regression_notes.md`.
+4. **Lap time moves with solver, not with data edits.** The -5.36 s shift from 101.17 s to 95.81 s came from solver changes alone (V1, T1, S1) while the data files did not change. That is direct evidence that the solver dominates realism. Further realism work belongs in the solver: load dependent mu, CoG transfer already added in V1, full ERS and DRS models, aero maps that vary with ride height and yaw, and proper combined slip handling, with updated `data/reference/*baseline.txt` values and notes in `AgentDoc/docs/regression_notes.md`.
 
 ## Recommendations (Do Not Edit `data/*.json`)
 
 * Keep `data/vehicles/f1.json` and `data/tracks/spa.json` frozen. If modern spec alignment is needed, create new presets such as `data/vehicles/f1_2025.json` or `data/tracks/spa_2025.json` and leave the baseline pair intact for regression.
-* Put physics corrections in code: ERS energy and deploy, DRS, tyre temp and load sensitivity refinement, aero varying with speed and banking, and brake system capacity. Update `data/reference/spa_f1_full_baseline.txt` and `docs/regression_notes.md` alongside each solver change.
+* Put physics corrections in code: ERS energy and deploy, DRS, tyre temp and load sensitivity refinement, aero varying with speed and banking, and brake system capacity. Update `data/reference/spa_f1_full_baseline.txt` and `AgentDoc/docs/regression_notes.md` alongside each solver change.
 * Keep validation strict: `pytest tests/test_data_schema.py -q` and the regression suite `tests/test_regression_spa_f1.py` plus `tests/test_regression_full.py` must pass before any conclusion about realism is drawn.
 
 ## Verification

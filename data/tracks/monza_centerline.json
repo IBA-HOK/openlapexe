@@ -19213,5 +19213,11 @@
       "sector_id": 3
     }
   ],
-  "logged": false
+  "logged": false,
+  "meta": {
+    "zone": null,
+    "note": "local-frame",
+    "zone_note": "local-frame",
+    "schema_version": "2"
+  }
 }

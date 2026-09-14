@@ -7,7 +7,7 @@ import pathlib
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 VEH = ROOT / "data" / "vehicles" / "gt500_suzuka.json"
-BOP_MD = ROOT / "data" / "reference" / "gt500_suzuka_bop_calc.md"
+BOP_MD = ROOT / "AgentDoc" / "reference" / "gt500_suzuka_bop_calc.md"
 GT = ROOT / "data" / "vehicles" / "gt.json"
 
 
@@ -84,6 +84,10 @@ def test_mvp_keys_present():
 
 def test_f1_spa_unchanged_guard():
     spa = json.loads((ROOT / "data" / "tracks" / "spa.json").read_text(encoding="utf-8"))
-    assert spa["length_m"] == 6953.611
+    spc = json.loads((ROOT / "data" / "tracks" / "spa_centerline.json").read_text(encoding="utf-8"))
+    assert abs(spa["length_m"] - 6953.247) < 1.0
+    assert spc["length_m"] == 6953.611
+    assert "コース中心線" not in spa.get("name", "")
+    assert "コース中心線" in spc.get("name", "")
     f1 = json.loads((ROOT / "data" / "vehicles" / "f1.json").read_text(encoding="utf-8"))
     assert f1["mass_kg"] == 650

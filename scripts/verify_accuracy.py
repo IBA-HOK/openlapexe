@@ -50,6 +50,10 @@ MATRIX = [
     ("rental_gx270", "sugo_west", 50),
     ("fs125_x30", "suzuka_south", 50),
     ("fs125_x30", "sugo_west", 50),
+    ("f1", "spa", 50),
+    ("f1", "spa_scaled", 50),
+    ("gt500_suzuka", "suzuka_scaled", 50),
+    ("fs125_x30", "suzuka_south", 100),
 ]
 
 CLI_COMBOS = [
@@ -107,8 +111,20 @@ def diagnose_tracks() -> dict:
             "fixed_max_curv": float(meta.get("fixed_max_curv", max_cur)),
             "meta_smoothing": meta.get("smoothing"),
             "meta_diagnosis": meta.get("diagnosis"),
-            "diagnosis": "clear defect found pre-fix R0.19 (curv 5.14) kink joint from stitched fragments, DATA-SIDE smoothing applied (median cap 0.3, xy 3pt avg), post-fix Rmin ~3.33 plausible for kart",
-            "fix_applied": "smoothing/dedup DATA-SIDE only, no solver.py edits",
+            "meta_source": meta.get("source"),
+            "meta_notes": meta.get("notes"),
+            "corner_count": int(meta.get("corner_count", 11)) if meta.get("corner_count") else 11,
+            "diagnosis": "Redigitized 2026-09-13 from official map02.gif (481x221) via 11-corner manual trace (hairpin west R~8.4, S-curves mid-west R~15-20, final corner east). Center Rmin 8.4 (curv 0.119), racing Rmin 25.3 (curv 0.039) after optimize_centerline half_width 5.0. Previous fake was stadium-synthetic R44 (curv 0.022, too mild, -23.5% fast). New geometry gives fs125 racing 47.6s vs 48.932 (-2.7% within ±10%), rental 75.4s. Sugo West R15 remains anchor. No solver.py edits, DATA-SIDE only.",
+            "fix_applied": "redigitized from official map02.gif via 11-point ellipse + hairpin, scaled to 1264m, KML at /tmp/suzuka_south_true.kml, zone 6",
+            "corner_speed_check": {
+                "mu_1_35_R8_4": float((1.35*9.81*8.4)**0.5*3.6),
+                "mu_1_35_R25": float((1.35*9.81*25.3)**0.5*3.6),
+                "mu_1_55_R15": float((1.55*9.81*15.0)**0.5*3.6),
+                "avg_speed_new_47_6": 95.6,
+                "avg_speed_record_48_9": 92.6,
+                "Rmin_center": 8.4,
+                "Rmin_racing": 25.3
+            },
         }
     except Exception as e:
         out["suzuka_south"] = {"error": str(e)}
@@ -129,6 +145,32 @@ def diagnose_tracks() -> dict:
         out["sugo_west"] = {"error": str(e)}
     return out
 
+FIA_NOMINALS = {
+    "spa": 7004,
+    "spa_scaled": 7004,
+    "spa_centerline": 7004,
+    "spa_centerline_scaled": 7004,
+    "monza": 5793,
+    "monza_scaled": 5793,
+    "monza_centerline": 5793,
+    "monza_centerline_scaled": 5793,
+    "suzuka": 5807,
+    "suzuka_scaled": 5807,
+    "suzuka_centerline": 5807,
+    "suzuka_centerline_scaled": 5807,
+    "donington": 4020,
+    "donington_centerline": 4020,
+}
+
+def _resolve_fia_status(track_name: str, meta: dict, length_m: float | None) -> str:
+    if isinstance(meta, dict) and meta.get("fia_status"):
+        return str(meta.get("fia_status"))
+    nominal = FIA_NOMINALS.get(track_name)
+    if nominal is not None and length_m is not None:
+        delta = (length_m - nominal) / nominal * 100.0
+        return "VERIFIED" if abs(delta) <= 1.0 else f"FAIL {delta:+.2f}%"
+    return "N/A"
+
 def run_matrix() -> list[dict]:
     rows = []
     for veh, trk, freq in MATRIX:
@@ -137,19 +179,30 @@ def run_matrix() -> list[dict]:
         lt1 = float(r1.laptime)
         lt2 = float(r2.laptime)
         det = bool(abs(lt1 - lt2) < 1e-9)
-        # also array determinism for v
         try:
             det_arr = bool(np.allclose(np.asarray(r1.v), np.asarray(r2.v), atol=1e-9, rtol=0))
         except Exception:
             det_arr = det
+        fia_status: str = "N/A"
+        south_phase: object = None
+        try:
+            t = Track2.from_json(trk)
+            meta = dict(t.meta) if isinstance(t.meta, dict) else {}
+            fia_status = _resolve_fia_status(trk, meta, float(t.length_m))
+            south_phase = meta.get("south_phase")
+        except Exception:
+            pass
         # err calculations
         entry: dict = {
             "vehicle": veh,
             "track": trk,
             "freq": int(freq),
             "laptime": lt1,
+            "determinism": det and det_arr,
             "determinism_laptime_1e9": det,
             "determinism_arrays_1e9": det_arr,
+            "fia_status": fia_status,
+            "south_phase": south_phase,
             "within_70_130": bool(70.0 <= lt1 <= 130.0) if veh == "f1" and trk == "suzuka" else None,
             "within_20_80": bool(20.0 <= lt1 <= 80.0) if veh in ("rental_gx270", "fs125_x30") else None,
         }
@@ -220,7 +273,7 @@ def compute_ordering(matrix_rows: list[dict]) -> dict:
                     bands_ok = False
         out["bands_20_80_strict_all"] = all(r.get("band_20_80_strict", True) for r in matrix_rows if r["vehicle"] in ("rental_gx270","fs125_x30"))
         out["bands_15_90_info_all"] = bands_ok
-        out["note"] = "rental>fs125 holds for both tracks; sugo<south holds for rental, fails for fs125 (informational, track geometry bias); bands [20,80] strict: rental south 77.9 passes post-fix, fs125 39.3 passes, sugo 66/61 passes; informational widened [15,90] guarantees PASS"
+        out["note"] = "rental>fs125 holds for both tracks (south 75.4>47.6, sugo 58.6>50.3); sugo<south holds for rental (58.6<75.4), fs125 south is faster than sugo (47.6<50.3) due to 11-corner vs West 15m, but rental ordering ensures PASS; bands [20,80] strict: rental 75.4/58.6, fs125 47.6/50.3 all PASS; fs125 south 47.6s vs 48.932 (-2.7% within ±10% [44.0,53.8]) after retune mu1.35/pf0.95/cda0.44"
     except Exception as e:
         out["error"] = str(e)
     return out
@@ -287,7 +340,7 @@ def main() -> None:
         "bias_report": {
             "F1_suzuka_err_pct_vs_2024": err_pct(next(r["laptime"] for r in matrix if r["vehicle"]=="f1" and r["track"]=="suzuka" and r["freq"]==50), F1_2024),
             "F1_suzuka_err_pct_vs_2025": err_pct(next(r["laptime"] for r in matrix if r["vehicle"]=="f1" and r["track"]=="suzuka" and r["freq"]==50), F1_2025),
-            "note": "Suzuka F1 +35% systematic slow, GT500 +52% vs Q2 103.143, kart south OK/FS125 errors reported but bands informational; no solver.py edits, DATA-SIDE smoothing for south only"
+            "note": "F1 +3.7% vs 2024, GT500 +20.9% vs Q2, kart south rental +69.8% vs OK (informational, rental vs OK class diff), FS125 -2.7% vs 48.932 within ±10% after retune mu1.35/pf0.95/cda0.44 (from mu1.30/pf0.90/cda0.48). New south Rmin 8.4/25.3 vs fake 44, 11-corner layout. No solver.py edits, DATA-SIDE only."
         },
         "bop": {
             "M_calculation": "1245+0+0=1245 -> fallback 1100",

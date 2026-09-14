@@ -21,6 +21,13 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import tkinter.font as tkfont
 
+try:
+    from openlapexe.gui.combobox_fix import fix_combobox as _fix_combo, fix_listbox_horizontal as _fix_listbox, fix_treeview_horizontal as _fix_tree_h  # type: ignore
+except Exception:
+    _fix_combo = None  # type: ignore
+    _fix_listbox = None  # type: ignore
+    _fix_tree_h = None  # type: ignore
+
 log = logging.getLogger(__name__)
 
 # helpers: try openlapexe.io, fallback to local
@@ -583,6 +590,11 @@ class App2(tk.Tk):
                 self.btn_load.pack(side="left", padx=2)
                 self.load_button = self.btn_load
                 self._refresh_load_combo()
+                try:
+                    if _fix_combo is not None:
+                        _fix_combo(self._load_combo, list(self._load_combo.cget("values") or []), max_chars=40)
+                except Exception:
+                    pass
             except Exception:
                 pass
         except Exception:
@@ -797,6 +809,11 @@ class App2(tk.Tk):
             self._photo_listbox.pack(side="left", padx=4, fill="x", expand=True)
             self.photo_listbox = self._photo_listbox
             try:
+                if _fix_listbox is not None:
+                    _fix_listbox(self._photo_listbox, bar)
+            except Exception:
+                pass
+            try:
                 self._photo_listbox.bind("<<ListboxSelect>>", lambda _e: self._on_photo_select())
             except Exception:
                 pass
@@ -872,7 +889,9 @@ class App2(tk.Tk):
             self._waypoint_tree_frame = tv_frame  # type: ignore[attr-defined]
             vsb = ttk.Scrollbar(tv_frame, orient="vertical")
             self._waypoint_vsb = vsb  # type: ignore[attr-defined]
-            tree = ttk.Treeview(tv_frame, columns=("no", "lat", "lon"), show="headings", height=8, yscrollcommand=vsb.set)
+            hsb = ttk.Scrollbar(tv_frame, orient="horizontal")
+            self._waypoint_hsb = hsb  # type: ignore[attr-defined]
+            tree = ttk.Treeview(tv_frame, columns=("no", "lat", "lon"), show="headings", height=8, yscrollcommand=vsb.set, xscrollcommand=hsb.set)
             tree.heading("no", text="No")
             tree.heading("lat", text="lat")
             tree.heading("lon", text="lon")
@@ -880,8 +899,18 @@ class App2(tk.Tk):
             tree.column("lat", width=110, anchor="center")
             tree.column("lon", width=110, anchor="center")
             vsb.config(command=tree.yview)
+            hsb.config(command=tree.xview)
             tree.pack(side="left", fill="both", expand=True)
             vsb.pack(side="right", fill="y")
+            try:
+                hsb.pack(side="bottom", fill="x")
+            except Exception:
+                pass
+            try:
+                if _fix_tree_h is not None:
+                    _fix_tree_h(tree, tv_frame)
+            except Exception:
+                pass
             self._waypoint_tree = tree  # type: ignore[attr-defined]
             self.waypoint_tree = tree  # type: ignore[attr-defined]
             self.treeview = tree  # type: ignore[attr-defined]
@@ -2981,6 +3010,11 @@ class App2(tk.Tk):
                     combo.set(cur)
                 elif stems:
                     combo.set(stems[0])
+            except Exception:
+                pass
+            try:
+                if _fix_combo is not None:
+                    _fix_combo(combo, stems, max_chars=40)
             except Exception:
                 pass
         except Exception:
