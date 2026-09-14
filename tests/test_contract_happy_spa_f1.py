@@ -1,17 +1,18 @@
 # -*- coding: utf-8 -*-
-"""Happy-path contracts: spa f1 50Hz/100Hz + app.simulate alias in 101.104 ±0.5% (racing) + spa_scaled ≈101.57 proviso.
+"""Happy-path contracts: spa f1 50Hz/100Hz + app.simulate alias in 100.617 ±0.5% (racing) + spa_scaled ≈101.09 proviso.
 
-Threshold provenance (PYTHONPATH=src, simulate_full 50Hz, 2026-09-13 shape verification):
-- CANONICAL 101.10435359601342 s = f1/spa racing measured via simulate_full("f1","spa",50);
-  baseline txt data/reference/spa_f1_full_baseline.txt contains same value (101.10435359601342).
-  data/reference/spa_f1_baseline.txt (old shim) 101.17 kept for regression history.
-- Tolerance ±0.5% => LO 100.59883182803335, HI 101.60987536399348; informational band [100,102.5]
-  ensures PASS with measured 101.104 and allows tiny solver drift.
-- SPA_SCALED 101.57399768357575 s = f1/spa_scaled racing 50Hz measured same method;
+Threshold provenance (PYTHONPATH=src, simulate_full 50Hz, re-baselined 2026-09-14 after
+Wx-sign + signed-curvature + racing-data-resign fixes; old 101.104/101.17 retained in git history):
+- CANONICAL 100.61726451283548 s = f1/spa racing measured via simulate_full("f1","spa",50);
+  baseline txt data/reference/spa_f1_full_baseline.txt contains same value (100.61726451283548).
+  data/reference/spa_f1_baseline.txt re-baselined to same value (old shim 101.17 in history).
+- Tolerance ±0.5% => LO 100.1141781902713, HI 101.12035083544966; informational band [100,102.5]
+  ensures PASS with measured 100.617 and allows tiny solver drift.
+- SPA_SCALED 101.09013636680646 s = f1/spa_scaled racing 50Hz measured same method;
   proviso note: spa_scaled is optimize_centerline racing from spa_centerline (delta -0.36m,
   Rmin 17.97 vs 17.84); shape-data centerlines already radius-based so scaled gain is small
-  (+0.47s vs spa). Documented as ≈101.57 ±0.5% (LO 101.066, HI 102.082) and also inside
-  canonical HI 101.609; both guards PASS. See data/README.md racing vs centerline section.
+  (+0.47s vs spa). Documented as ≈101.09 ±0.5% (LO 100.584, HI 101.595) and also inside
+  canonical HI 101.120; both guards PASS. See data/README.md racing vs centerline section.
 - Freq mapping: 50Hz step 2.0m, 100Hz step 1.0m; 100Hz laptime must stay in same canonical band
   and have longer s array (denser mesh) but deterministic.
 - Determinism 1e-9: every contract runs simulate_full twice and asserts atol 1e-9 rtol 0 for
@@ -24,14 +25,14 @@ import numpy as np
 import numpy.testing as npt
 import pytest
 
-CANONICAL = 101.10435359601342
+CANONICAL = 100.61726451283548
 TOL = 0.005
-LO = CANONICAL * (1 - TOL)  # 100.59883182803335
-HI = CANONICAL * (1 + TOL)  # 101.60987536399348
+LO = CANONICAL * (1 - TOL)  # 100.1141781902713
+HI = CANONICAL * (1 + TOL)  # 101.12035083544966
 
-CANONICAL_SCALED = 101.57399768357575
-LO_SCALED = CANONICAL_SCALED * (1 - TOL)  # 101.06612769510788
-HI_SCALED = CANONICAL_SCALED * (1 + TOL)  # 102.08186767204362
+CANONICAL_SCALED = 101.09013636680646
+LO_SCALED = CANONICAL_SCALED * (1 - TOL)  # 100.58468568497243
+HI_SCALED = CANONICAL_SCALED * (1 + TOL)  # 101.59558704864049
 
 
 def test_happy_spa_f1_50hz_in_band() -> None:
@@ -77,16 +78,16 @@ def test_happy_app_simulate_alias_same_band() -> None:
 
 
 def test_happy_spa_scaled_approx_101_57_proviso() -> None:
-    """spa_scaled ≈101.57 proviso: +0.47s vs spa due to optimize_centerline; inside scaled ±0.5% and canonical HI."""
+    """spa_scaled ≈101.09 proviso: +0.47s vs spa due to optimize_centerline; inside scaled ±0.5% and canonical HI."""
     from openlapexe.solver import simulate_full
 
     r1 = simulate_full("f1", "spa_scaled", 50)
     r2 = simulate_full("f1", "spa_scaled", 50)
     npt.assert_allclose(float(r1.laptime), float(r2.laptime), atol=1e-9, rtol=0)
     npt.assert_allclose(np.asarray(r1.v), np.asarray(r2.v), atol=1e-9, rtol=0)
-    # proviso: spa_scaled has its own canonical 101.5739 ±0.5%
+    # proviso: spa_scaled has its own canonical 101.0901 ±0.5%
     assert LO_SCALED <= r1.laptime <= HI_SCALED, f"spa_scaled laptime {r1.laptime} not in [{LO_SCALED},{HI_SCALED}]"
-    # also inside canonical HI (since +0.47s < 0.5% *101.104 ≈0.505s, borderline but PASS measured 101.573 <101.609)
+    # also inside canonical HI (since +0.47s < 0.5% *100.617 ≈0.503s, PASS measured 101.090 <101.120)
     assert r1.laptime <= HI, f"spa_scaled {r1.laptime} exceeds canonical HI {HI} proviso"
     assert 100.0 <= r1.laptime <= 102.5
     # determinism vs spa: two spa runs must differ from scaled by expected ~0.47s (proviso note)

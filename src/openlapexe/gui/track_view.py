@@ -47,6 +47,16 @@ except Exception:
     Track = None  # type: ignore
     Track2 = None  # type: ignore
 
+try:
+    from openlapexe.gui.chart_base import PAD_BOTTOM, PAD_LEFT, PAD_RIGHT, PAD_TOP, _axis_limits, _view_rect  # type: ignore
+except Exception:
+    PAD_LEFT = 52.0  # type: ignore
+    PAD_RIGHT = 12.0  # type: ignore
+    PAD_TOP = 12.0  # type: ignore
+    PAD_BOTTOM = 30.0  # type: ignore
+    _axis_limits = None  # type: ignore
+    _view_rect = None  # type: ignore
+
 log = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -776,7 +786,7 @@ class TrackView2(ttk.Frame):
             w = 400
         if h < 10:
             h = 320
-        pad = 12
+        _pad_dummy = 12  # legacy pad removed, use PAD_*
 
         try:
             import numpy as np  # type: ignore
@@ -911,42 +921,68 @@ class TrackView2(ttk.Frame):
             if s_arr is None or s_arr.size != n0:
                 s_arr = np.linspace(0, float(getattr(t, "length_m", n0)), n0)
 
-            # compute bounds
-            min_x = float(np.min(xs_arr))
-            max_x = float(np.max(xs_arr))
-            min_y = float(np.min(ys_arr))
-            max_y = float(np.max(ys_arr))
-            range_x = max_x - min_x
-            range_y = max_y - min_y
+            try:
+                xl, xh = _axis_limits(xs_arr, 0.05) if _axis_limits is not None else (float(np.min(xs_arr)), float(np.max(xs_arr)))  # type: ignore
+                yl, yh = _axis_limits(ys_arr, 0.05) if _axis_limits is not None else (float(np.min(ys_arr)), float(np.max(ys_arr)))  # type: ignore
+            except Exception:
+                xl = float(np.min(xs_arr))
+                xh = float(np.max(xs_arr))
+                yl = float(np.min(ys_arr))
+                yh = float(np.max(ys_arr))
+                rx0 = xh - xl
+                ry0 = yh - yl
+                if rx0 < 1e-9:
+                    xh = xl + 1.0
+                if ry0 < 1e-9:
+                    yh = yl + 1.0
+            if xh - xl < 1e-9:
+                xh = xl + 1.0
+            if yh - yl < 1e-9:
+                yh = yl + 1.0
+            try:
+                x0, y0, x1, y1, plot_w, plot_h = _view_rect(w, h, equal=True) if _view_rect is not None else (float(PAD_LEFT), float(PAD_TOP), float(w - PAD_RIGHT), float(h - PAD_BOTTOM), float(w - PAD_LEFT - PAD_RIGHT), float(h - PAD_TOP - PAD_BOTTOM))  # type: ignore
+            except Exception:
+                x0, y0, x1, y1 = float(PAD_LEFT), float(PAD_TOP), float(w - PAD_RIGHT), float(h - PAD_BOTTOM)
+                plot_w, plot_h = float(w - PAD_LEFT - PAD_RIGHT), float(h - PAD_TOP - PAD_BOTTOM)
+            range_x = float(xh - xl)
+            range_y = float(yh - yl)
             if range_x < 1e-9:
                 range_x = 1.0
             if range_y < 1e-9:
                 range_y = 1.0
-            avail_w = float(w - 2 * pad)
-            avail_h = float(h - 2 * pad)
-            scale = min(avail_w / range_x, avail_h / range_y)
-            extra_w = avail_w - range_x * scale
-            extra_h = avail_h - range_y * scale
-            off_x = pad + extra_w * 0.5 - min_x * scale
-            off_y = pad + extra_h * 0.5 - min_y * scale
+            if plot_w < 1:
+                plot_w = 1
+            if plot_h < 1:
+                plot_h = 1
+            scale = min(plot_w / range_x, plot_h / range_y)
+            extra_w = plot_w - range_x * scale
+            extra_h = plot_h - range_y * scale
+            off_x = float(x0) + extra_w * 0.5 - float(xl) * scale
 
             def _px(x: float) -> float:
-                return x * scale + off_x
+                return float(x) * scale + off_x
 
             def _py(y: float) -> float:
-                return h - (y * scale + off_y)
+                return float(y1) - extra_h * 0.5 - (float(y) - float(yl)) * scale  # type: ignore
 
             try:
                 self._probe_arrays = (
                     xs_arr.copy(),
                     ys_arr.copy(),
                     s_arr.copy(),
-                    float(min_x),
-                    float(max_x),
-                    float(min_y),
-                    float(max_y),
-                    float(pad),
+                    float(xl),
+                    float(xh),
+                    float(yl),
+                    float(yh),
+                    float(x0),
+                    float(y0),
+                    float(x1),
+                    float(y1),
                 )
+            except Exception:
+                pass
+            try:
+                self._view = (float(xl), float(xh), float(yl), float(yh), float(x0), float(y0), float(x1), float(y1))
             except Exception:
                 pass
 
@@ -1214,7 +1250,19 @@ class TrackView2(ttk.Frame):
             info = getattr(self, "_probe_arrays", None)
             if not info:
                 return
-            xs, ys, ss, min_x, max_x, min_y, max_y, pad = info
+            try:
+                if len(info) >= 11:
+                    xs, ys, ss, xl, xh, yl, yh, x0, y0, x1, y1 = info[:11]
+                elif len(info) == 10:
+                    xs, ys, ss, xl, xh, yl, yh, x0, y0, x1 = info[:10]
+                    y1 = float(y0) + float(x1 - x0)
+                else:
+                    xs, ys, ss, xl, xh, yl, yh = info[:7]
+                    x0, y0, x1, y1 = float(PAD_LEFT), float(PAD_TOP), float(400 - PAD_RIGHT), float(320 - PAD_BOTTOM)
+            except Exception:
+                return
+            min_x, max_x, min_y, max_y = float(xl), float(xh), float(yl), float(yh)
+            pad = float(x0)
             import numpy as _npp
 
             xa = _npp.asarray(xs, dtype=float)
@@ -1236,20 +1284,36 @@ class TrackView2(ttk.Frame):
                 w = 400
             if h < 10:
                 h = 320
-            rx = float(max_x) - float(min_x)
-            ry = float(max_y) - float(min_y)
+            try:
+                v = getattr(self, "_view", None)
+                if v is not None and len(v) == 8:
+                    xl_v, xh_v, yl_v, yh_v, x0_v, y0_v, x1_v, y1_v = v
+                    xl, xh, yl, yh, x0, y0, x1, y1 = float(xl_v), float(xh_v), float(yl_v), float(yh_v), float(x0_v), float(y0_v), float(x1_v), float(y1_v)
+            except Exception:
+                pass
+            rx = float(xh) - float(xl)
+            ry = float(yh) - float(yl)
             if rx < 1e-9:
                 rx = 1.0
             if ry < 1e-9:
                 ry = 1.0
-            scale = min(float(w - 2 * pad) / rx, float(h - 2 * pad) / ry)
-            extra_w = float(w - 2 * pad) - rx * scale
-            extra_h = float(h - 2 * pad) - ry * scale
-            off_x = float(pad) + extra_w * 0.5 - float(min_x) * scale
-            off_y = float(pad) + extra_h * 0.5 - float(min_y) * scale
+            try:
+                plot_w = float(x1) - float(x0)
+                plot_h = float(y1) - float(y0)
+                if plot_w < 1:
+                    plot_w = float(w - PAD_LEFT - PAD_RIGHT)
+                if plot_h < 1:
+                    plot_h = float(h - PAD_TOP - PAD_BOTTOM)
+            except Exception:
+                plot_w = float(w - PAD_LEFT - PAD_RIGHT)
+                plot_h = float(h - PAD_TOP - PAD_BOTTOM)
+            scale = min(plot_w / rx, plot_h / ry)
+            extra_w = plot_w - rx * scale
+            extra_h = plot_h - ry * scale
+            off_x = float(x0) + extra_w * 0.5 - float(xl) * scale
             try:
                 mpx = xa * scale + off_x
-                mpy = float(h) - (ya * scale + off_y)
+                mpy = float(y1) - extra_h * 0.5 - (ya - float(yl)) * scale
                 idx = int(_npp.argmin((mpx - cx) ** 2 + (mpy - cy) ** 2))
             except Exception:
                 idx = 0

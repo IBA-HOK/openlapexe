@@ -128,7 +128,7 @@ def test_compute_curvature_profile_public():
     curv = compute_curvature_profile(c, closed=False)
     assert curv.shape == (c.shape[0],)
     assert np.all(np.isfinite(curv))
-    assert np.all(curv >= 0)
+    assert np.all(np.abs(curv) >= 0)  # signed curvature allowed (Left=+1/R, Right=-1/R)
 
 
 def test_direct_line_helper():

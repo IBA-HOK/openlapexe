@@ -435,7 +435,7 @@ class Track:
                             _tmp = np.asarray(_ccp2(_xy, closed=bool(getattr(self, "closed_loop", True))), dtype=float).reshape(-1)
                             if _tmp.shape[0] == _n:
                                 _tmp = np.where(np.isfinite(_tmp), _tmp, 0.0)
-                                _new_curv = np.abs(_tmp)
+                                _new_curv = _tmp
                         except Exception:
                             _new_curv = None
                         if _new_curv is None:
@@ -459,13 +459,13 @@ class Track:
                                     _ypp = float(_y0[_ip1]) - 2.0 * float(_y0[_i]) + float(_y0[_im1])
                                     _pn = float(np.hypot(_xp, _yp))
                                     _den = _pn**3 + _eps
-                                    _cross = abs(_xp * _ypp - _yp * _xpp)
+                                    _cross = _xp * _ypp - _yp * _xpp
                                     _k = _cross / _den if _den != 0 else 0.0
-                                    if not np.isfinite(_k) or _k < 0:
+                                    if not np.isfinite(_k):
                                         _k = 0.0
                                     _new_curv[_i] = float(_k)
                                 _new_curv[~np.isfinite(_new_curv)] = 0.0
-                                _new_curv = np.abs(_new_curv)
+                                # signed: keep _new_curv
                             except Exception:
                                 _new_curv = np.zeros(_n, dtype=float)
                         if _new_curv is not None and _new_curv.shape[0] == _n:
@@ -566,7 +566,7 @@ class Track:
                             _tmp3 = np.asarray(_ccp3(_xy3, closed=bool(closed_loop)), dtype=float).reshape(-1)
                             if _tmp3.shape[0] == n:
                                 _tmp3 = np.where(np.isfinite(_tmp3), _tmp3, 0.0)
-                                _healed = np.abs(_tmp3)
+                                _healed = _tmp3
                         except Exception:
                             _healed = None
                         if _healed is None:
@@ -590,13 +590,13 @@ class Track:
                                     _ypp = float(_y03[_ip1]) - 2.0 * float(_y03[_i3]) + float(_y03[_im1])
                                     _pn = float(np.hypot(_xp, _yp))
                                     _den = _pn**3 + _eps3
-                                    _cross = abs(_xp * _ypp - _yp * _xpp)
+                                    _cross = _xp * _ypp - _yp * _xpp
                                     _k = _cross / _den if _den != 0 else 0.0
-                                    if not np.isfinite(_k) or _k < 0:
+                                    if not np.isfinite(_k):
                                         _k = 0.0
                                     _healed[_i3] = float(_k)
                                 _healed[~np.isfinite(_healed)] = 0.0
-                                _healed = np.abs(_healed)
+                                # signed: keep _healed
                             except Exception:
                                 _healed = np.zeros(n, dtype=float)
                         if _healed is not None and _healed.shape[0] == n:
@@ -749,7 +749,7 @@ class Track:
             if _curv_tmp.shape[0] != n:
                 raise ValueError("curv shape mismatch")
             _curv_tmp = np.where(np.isfinite(_curv_tmp), _curv_tmp, 0.0)
-            _curv_tmp = np.abs(_curv_tmp)
+            # signed: keep _curv_tmp
             curv_arr = _curv_tmp.astype(float, copy=False)
         except Exception:
             # fallback triangle curvature loop (closed aware, handles large coords stably)
@@ -774,13 +774,13 @@ class Track:
                         _ypp = float(_y0[_ip1]) - 2.0 * float(_y0[_i]) + float(_y0[_im1])
                         _pn = float(np.hypot(_xp, _yp))
                         _den = _pn**3 + _eps
-                        _cross = abs(_xp * _ypp - _yp * _xpp)
+                        _cross = _xp * _ypp - _yp * _xpp
                         _k = _cross / _den if _den != 0 else 0.0
-                        if not np.isfinite(_k) or _k < 0:
+                        if not np.isfinite(_k):
                             _k = 0.0
                         curv_arr[_i] = float(_k)
                     curv_arr[~np.isfinite(curv_arr)] = 0.0
-                    curv_arr = np.abs(curv_arr)
+                    # signed: keep curv_arr
             except Exception:
                 curv_arr = np.zeros(n, dtype=float)
         bank_arr = np.zeros(n, dtype=float)

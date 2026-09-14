@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""S3 regression: spa_f1 baseline 101.17s ±0.5% and nondeterminism detection."""
+"""S3 regression: spa_f1 baseline 100.617s ±0.5% and nondeterminism detection."""
 from __future__ import annotations
 
 import pathlib
@@ -9,7 +9,7 @@ import pytest
 
 
 BASELINE_PATH = pathlib.Path(__file__).resolve().parent.parent / "data" / "reference" / "spa_f1_baseline.txt"
-EXPECTED_BASELINE = 101.17
+EXPECTED_BASELINE = 100.61726451283548
 TOLERANCE = 0.005  # ±0.5%
 
 
@@ -22,9 +22,9 @@ def test_baseline_file_exists_and_value() -> None:
     assert BASELINE_PATH.exists(), f"baseline file missing: {BASELINE_PATH}"
     val = _read_baseline()
     assert abs(val - EXPECTED_BASELINE) < 1e-9, f"baseline {val} != {EXPECTED_BASELINE}"
-    # also ensure raw text is exactly 101.17 (first line)
+    # also ensure raw text matches re-baselined value (first line; old 101.17 in git history)
     raw = BASELINE_PATH.read_text(encoding="utf-8").strip()
-    assert raw.startswith("101.17"), f"raw baseline should start with 101.17, got {raw!r}"
+    assert raw.startswith("100.617"), f"raw baseline should start with 100.617, got {raw!r}"
 
 
 def test_spa_f1_regression_within_tolerance() -> None:
@@ -37,7 +37,7 @@ def test_spa_f1_regression_within_tolerance() -> None:
     lo = baseline * (1 - TOLERANCE)
     hi = baseline * (1 + TOLERANCE)
     assert lo <= res.laptime <= hi, f"laptime {res.laptime} not in [{lo},{hi}] baseline {baseline} ±0.5%"
-    # also check against hard-coded 101.17 within same tolerance (double-check file vs constant)
+    # also check against hard-coded canonical within same tolerance (double-check file vs constant)
     lo2 = EXPECTED_BASELINE * (1 - TOLERANCE)
     hi2 = EXPECTED_BASELINE * (1 + TOLERANCE)
     assert lo2 <= res.laptime <= hi2

@@ -75,7 +75,7 @@ def _curvature_profile(center: npt.NDArray[np.float64], closed: bool) -> npt.NDA
         ypp = np.roll(y, -1) - 2.0 * y + np.roll(y, 1)
         p_norm = np.hypot(xp, yp)
         denom = p_norm ** 3 + eps
-        cross = np.abs(xp * ypp - yp * xpp)
+        cross = xp * ypp - yp * xpp
         k = cross / denom
         k[~np.isfinite(k)] = 0.0
         return k
@@ -87,7 +87,7 @@ def _curvature_profile(center: npt.NDArray[np.float64], closed: bool) -> npt.NDA
         ypp_mid = y[2:] - 2.0 * y[1:-1] + y[:-2]
         p_norm_mid = np.hypot(xp_mid, yp_mid)
         denom_mid = p_norm_mid ** 3 + eps
-        cross_mid = np.abs(xp_mid * ypp_mid - yp_mid * xpp_mid)
+        cross_mid = xp_mid * ypp_mid - yp_mid * xpp_mid
         k_mid = cross_mid / denom_mid
         k_mid[~np.isfinite(k_mid)] = 0.0
         kappa[1:-1] = k_mid
@@ -99,7 +99,7 @@ def compute_curvature_profile(
     c_xy: npt.NDArray[np.float64] | list | tuple,
     closed: bool = True,
 ) -> npt.NDArray[np.float64]:
-    """公開: 3点曲率 κ=|x'y''-y'x''|/|p'|³ を計算.
+    """公開: 3点曲率 κ=(x'y''-y'x'')/|p'|³ を計算 (符号付き, 左+/右-).
 
     Args:
         c_xy: (N,2) centerline
@@ -178,7 +178,7 @@ def optimize_centerline(
         iters: 固定反復回数 (決定論)
         width_margin: 制約マージン (w/2 - margin)
     Returns:
-        (center_xy (N,2), curv (N,))  curvは κ=|x'y''-y'x''|/|p'|³
+        (center_xy (N,2), curv (N,))  curvは符号付き κ=(x'y''-y'x'')/|p'|³
     """
     left = _as_xy(left_xy)
     right = _as_xy(right_xy)

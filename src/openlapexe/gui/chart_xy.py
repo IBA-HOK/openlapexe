@@ -17,7 +17,22 @@ import tkinter as tk
 
 import numpy as _np
 
-from openlapexe.gui.chart_base import BaseChart, _axis_limits, _draw_axes, _draw_colorbar, _draw_grid, _draw_legend_box, _format_eng, _nice_ticks, _thin
+from openlapexe.gui.chart_base import (
+    PAD_BOTTOM,
+    PAD_LEFT,
+    PAD_RIGHT,
+    PAD_TOP,
+    BaseChart,
+    _axis_limits,
+    _draw_axes,
+    _draw_colorbar,
+    _draw_grid,
+    _draw_legend_box,
+    _format_eng,
+    _nice_ticks,
+    _thin,
+    _view_rect,
+)
 
 __all__ = ["XYChart", "TXChart"]
 
@@ -384,36 +399,7 @@ class XYChart(BaseChart):
             w = 600
         if h < 10:
             h = 400
-        # base paddings
-        pad_left = 52.0
-        pad_right = 12.0
-        pad_top = 12.0
-        pad_bottom = 30.0
-        # compute plot rect; if equal, make square viewport
-        plot_w_raw = float(w - pad_left - pad_right)
-        plot_h_raw = float(h - pad_top - pad_bottom)
-        if plot_w_raw < 1:
-            plot_w_raw = 1
-        if plot_h_raw < 1:
-            plot_h_raw = 1
-        if self._equal:
-            size = min(plot_w_raw, plot_h_raw)
-            # center square
-            extra_w = plot_w_raw - size
-            extra_h = plot_h_raw - size
-            x0 = pad_left + extra_w * 0.5
-            x1 = float(w - pad_right - extra_w * 0.5)
-            y0 = pad_top + extra_h * 0.5
-            y1 = float(h - pad_bottom - extra_h * 0.5)
-            plot_w = size
-            plot_h = size
-        else:
-            x0 = float(pad_left)
-            y0 = float(pad_top)
-            x1 = float(w - pad_right)
-            y1 = float(h - pad_bottom)
-            plot_w = plot_w_raw
-            plot_h = plot_h_raw
+        x0, y0, x1, y1, plot_w, plot_h = _view_rect(w, h, equal=bool(self._equal))
         # store for inspection
         self._plot_w = float(plot_w)
         self._plot_h = float(plot_h)
