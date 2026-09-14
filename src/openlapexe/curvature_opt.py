@@ -359,10 +359,6 @@ def spline_waypoints(points: object, closed: bool = False, step_m: float = 2.0) 
         out = a[0][None, :] * (1.0 - t[:, None]) + a[1][None, :] * t[:, None]
         return _np.ascontiguousarray(out, dtype=float)
     seg = _np.hypot(_np.diff(a[:, 0]), _np.diff(a[:, 1]))
-    # S-OT5 PCHIP h=0 guard: ensure finite curvature when duplicate s
-    h = seg  # h is segment length
-    if _np.any(h < 1e-9):
-        seg = _np.where(h < 1e-9, 1e-9, seg)
     s = _np.concatenate(([0.0], _np.cumsum(seg)))
     total = float(s[-1])
     if not _np.isfinite(total) or total <= 0:
