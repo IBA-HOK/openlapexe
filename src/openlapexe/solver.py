@@ -314,8 +314,9 @@ def simulate_full(
     closed_wrap: bool = bool(getattr(tr_m, "closed_loop", True))  # MATLAB:OpenLAP.m closed
     L_wrap: float = float(tr_m.length_m) if float(tr_m.length_m) > 1e-12 else float(s_arr[-1]) if n >= 1 else float(step)
     dx: _npt.NDArray[_np.float64] = _np.zeros(n, dtype=float)  # MATLAB:OpenLAP.m: tr.dx
-    for _i in range(n - 1):
-        dx[_i] = float(s_arr[_i + 1] - s_arr[_i])  # MATLAB:OpenLAP.m: dx
+    for _i in range(n):  # inclusive S-OT4
+        if _i < n - 1:
+            dx[_i] = float(s_arr[_i + 1] - s_arr[_i])  # MATLAB:OpenLAP.m: dx
     if closed_wrap:
         # periodic wrap: last segment closes loop — L - s[-1] (s[-1]==L =>0) or hypot wrap
         # hypot alternative: _math.hypot(float(x_arr[0]-x_arr[-1]), float(y_arr[0]-y_arr[-1]))
@@ -340,7 +341,9 @@ def simulate_full(
             dx[-1] = float(step)
     # incl derived from elevation: MATLAB:OpenLAP.m: tr.incl = atand(diff(Z)/dx)
     incl_arr: _npt.NDArray[_np.float64] = _np.zeros(n, dtype=float)  # MATLAB:OpenLAP.m: tr.incl [deg]
-    for _i in range(n - 1):
+    for _i in range(n):  # inclusive S-OT4
+        if _i >= n - 1:
+            continue
         ddx = float(dx[_i])
         if ddx > 1e-12:
             dz = float(z_arr[_i + 1] - z_arr[_i])
@@ -759,7 +762,9 @@ def simulate_full(
     ay_arr: _npt.NDArray[_np.float64] = _np.zeros(n, dtype=float)  # MATLAB:OpenLAP.m:570 AY
     for i in range(n):  # MATLAB:OpenLAP.m ay = V^2*r
         ay_arr[i] = float(v[i] * v[i] * float(curv_arr[i]) + g_const * _sind(float(bank_deg[i])))  # MATLAB:OpenLAP.m ay
-    for i in range(n - 1):  # MATLAB:OpenLAP.m AX from v difference
+    for i in range(n):  # inclusive S-OT4
+        if i >= n - 1:
+            continue
         ds = float(s_arr[i + 1] - s_arr[i])
         if ds <= 1e-12:
             ax_arr[i] = 0.0

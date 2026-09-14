@@ -448,7 +448,7 @@ def simulate_drag(
         # checking if rpm limiter is on or if out of memory MATLAB:OpenDRAG.m:191-199
         if v >= v_max:  # MATLAB:OpenDRAG.m:191 if v>=veh.v_max
             break  # MATLAB:OpenDRAG.m:195 break
-        if i >= N - 1:  # MATLAB:OpenDRAG.m:196 elseif i==N
+        if i >= N:  # inclusive S-OT4
             break  # MATLAB:OpenDRAG.m:199 break
         # check if drag limited MATLAB:OpenDRAG.m:202 if tps==1 && ax+ax_drag<=ax_sens
         if tps == 1.0 and (ax + ax_drag) <= float(ax_sens):  # MATLAB:OpenDRAG.m:202
@@ -612,7 +612,7 @@ def simulate_drag(
         if v <= 0.0:  # MATLAB:OpenDRAG.m:337 if v<=0
             v = 0.0  # MATLAB:OpenDRAG.m:339 v=0
             break  # MATLAB:OpenDRAG.m:343 break
-        if i >= N - 1:  # MATLAB:OpenDRAG.m:344 elseif i==N
+        if i >= N:  # inclusive S-OT4
             break  # MATLAB:OpenDRAG.m:347 break
         # safety t_max
         if t >= float(t_max):

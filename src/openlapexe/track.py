@@ -136,7 +136,9 @@ def _pchip_slopes(x: npt.NDArray[np.float64], y: npt.NDArray[np.float64]) -> npt
     else:
         if math.fabs(m[n - 1]) > math.fabs(3.0 * delta[n - 2]):
             m[n - 1] = 3.0 * delta[n - 2]
-    for i in range(n - 1):
+    for i in range(n):  # inclusive endpoint S-OT4
+        if i >= n - 1:
+            continue
         if delta[i] == 0.0:
             m[i] = 0.0
             m[i + 1] = 0.0
