@@ -30,7 +30,49 @@ __all__ = [
     "_format_eng",
     "_draw_legend_box",
     "_draw_colorbar",
+    "PAD_LEFT",
+    "PAD_RIGHT",
+    "PAD_TOP",
+    "PAD_BOTTOM",
+    "_view_rect",
 ]
+
+PAD_LEFT: float = 52.0  # pad_left single source
+PAD_RIGHT: float = 12.0
+PAD_TOP: float = 12.0
+PAD_BOTTOM: float = 30.0
+
+
+def _view_rect(w: int, h: int, *, equal: bool = True) -> tuple[float, float, float, float, float, float]:
+    try:
+        ww = int(w)
+        hh = int(h)
+    except Exception:
+        ww, hh = 600, 400
+    if ww < 10:
+        ww = 600
+    if hh < 10:
+        hh = 400
+    pl = float(PAD_LEFT)
+    pr = float(PAD_RIGHT)
+    pt = float(PAD_TOP)
+    pb = float(PAD_BOTTOM)
+    raw_w = float(ww - pl - pr)
+    raw_h = float(hh - pt - pb)
+    if raw_w < 1:
+        raw_w = 1
+    if raw_h < 1:
+        raw_h = 1
+    if equal:
+        size = raw_w if raw_w < raw_h else raw_h
+        ew = raw_w - size
+        eh = raw_h - size
+        x0 = pl + ew * 0.5
+        x1 = float(ww - pr - ew * 0.5)
+        y0 = pt + eh * 0.5
+        y1 = float(hh - pb - eh * 0.5)
+        return (x0, y0, x1, y1, size, size)
+    return (pl, pt, float(ww - pr), float(hh - pb), raw_w, raw_h)
 
 # ---------------------------------------------------------------------------
 # _thin
@@ -574,13 +616,11 @@ class BaseChart(tk.Canvas):
             return "break"
         if f <= 0:
             return "break"
-        new_fx = min(25.0, max(0.2, self._zoom_fx * f))
-        new_fy = min(25.0, max(0.2, self._zoom_fy * f))
-        ax = new_fx / self._zoom_fx if self._zoom_fx else 1.0
-        ay = new_fy / self._zoom_fy if self._zoom_fy else 1.0
-        self._zoom_fx, self._zoom_fy = new_fx, new_fy
+        new_f = min(25.0, max(0.2, float(self._zoom_fx) * f))
+        ax = new_f / self._zoom_fx if self._zoom_fx else 1.0
+        self._zoom_fx, self._zoom_fy = new_f, new_f
         try:
-            self.scale("all", float(px), float(py), ax, ay)
+            self.scale("all", float(px), float(py), ax, ax)
         except Exception:
             pass
         return "break"
@@ -890,10 +930,6 @@ class BaseChart(tk.Canvas):
             w = 600
         if h < 10:
             h = 240
-        pad_left = 52
-        pad_right = 12
-        pad_top = 12
-        pad_bottom = 30
         has_data = False
         try:
             if self._x_data is not None and self._y_data is not None:
@@ -906,9 +942,9 @@ class BaseChart(tk.Canvas):
         if not has_data:
             try:
                 # grid
-                _draw_grid(self, float(pad_left), float(pad_top), float(w - pad_right), float(h - pad_bottom), 5, 5)
+                _draw_grid(self, float(PAD_LEFT), float(PAD_TOP), float(w - PAD_RIGHT), float(h - PAD_BOTTOM), 5, 5)
                 # axes + ticks
-                _draw_axes(self, float(pad_left), float(pad_top), float(w - pad_right), float(h - pad_bottom), 5, 5)
+                _draw_axes(self, float(PAD_LEFT), float(PAD_TOP), float(w - PAD_RIGHT), float(h - PAD_BOTTOM), 5, 5)
                 self.create_text(w // 2, h // 2, text="No data", fill="#888", tags=("placeholder",))
             except Exception:
                 pass
@@ -937,8 +973,8 @@ class BaseChart(tk.Canvas):
             # expand y a bit similar to SpeedChart
             y_range = yh - yl
             # keep x as-is (no extra), y add 5% already done
-            plot_w = float(w - pad_left - pad_right)
-            plot_h = float(h - pad_top - pad_bottom)
+            plot_w = float(w - PAD_LEFT - PAD_RIGHT)
+            plot_h = float(h - PAD_TOP - PAD_BOTTOM)
             if plot_w < 1:
                 plot_w = 1
             if plot_h < 1:
@@ -946,7 +982,7 @@ class BaseChart(tk.Canvas):
             x_scale = plot_w / (xh - xl)
             y_scale = plot_h / (yh - yl)
             try:
-                self._store_view(xl, xh, yl, yh, float(pad_left), float(pad_top), float(w - pad_right), float(h - pad_bottom))
+                self._store_view(xl, xh, yl, yh, float(PAD_LEFT), float(PAD_TOP), float(w - PAD_RIGHT), float(h - PAD_BOTTOM))
             except Exception:
                 pass
             try:
@@ -957,46 +993,46 @@ class BaseChart(tk.Canvas):
                 yticks = _np.linspace(yl, yh, 6)
             for xv in xticks:
                 try:
-                    px = pad_left + (float(xv) - xl) * x_scale
+                    px = PAD_LEFT + (float(xv) - xl) * x_scale
                 except Exception:
                     continue
-                if px < pad_left - 1 or px > w - pad_right + 1:
+                if px < PAD_LEFT - 1 or px > w - PAD_RIGHT + 1:
                     continue
-                self.create_line(px, pad_top, px, h - pad_bottom, fill="#e0e0e0", dash=(2, 2), tags=("grid",))
+                self.create_line(px, PAD_TOP, px, h - PAD_BOTTOM, fill="#e0e0e0", dash=(2, 2), tags=("grid",))
             for yv in yticks:
                 try:
-                    py = h - pad_bottom - (float(yv) - yl) * y_scale
+                    py = h - PAD_BOTTOM - (float(yv) - yl) * y_scale
                 except Exception:
                     continue
-                if py < pad_top - 1 or py > h - pad_bottom + 1:
+                if py < PAD_TOP - 1 or py > h - PAD_BOTTOM + 1:
                     continue
-                self.create_line(pad_left, py, w - pad_right, py, fill="#e0e0e0", dash=(2, 2), tags=("grid",))
+                self.create_line(PAD_LEFT, py, w - PAD_RIGHT, py, fill="#e0e0e0", dash=(2, 2), tags=("grid",))
             # axes
-            self.create_line(pad_left, h - pad_bottom, w - pad_right, h - pad_bottom, fill="#333", width=1, tags=("axis",))
-            self.create_line(pad_left, pad_top, pad_left, h - pad_bottom, fill="#333", width=1, tags=("axis",))
+            self.create_line(PAD_LEFT, h - PAD_BOTTOM, w - PAD_RIGHT, h - PAD_BOTTOM, fill="#333", width=1, tags=("axis",))
+            self.create_line(PAD_LEFT, PAD_TOP, PAD_LEFT, h - PAD_BOTTOM, fill="#333", width=1, tags=("axis",))
             for xv in xticks:
                 try:
-                    px = pad_left + (float(xv) - xl) * x_scale
+                    px = PAD_LEFT + (float(xv) - xl) * x_scale
                 except Exception:
                     continue
-                if px < pad_left - 1 or px > w - pad_right + 1:
+                if px < PAD_LEFT - 1 or px > w - PAD_RIGHT + 1:
                     continue
-                self.create_line(px, h - pad_bottom, px, h - pad_bottom + 4, fill="#333", tags=("tick",))
-                self.create_text(px, h - pad_bottom + 10, text=_format_eng(float(xv)), fill="#333", font=("TkDefaultFont", 7), anchor="n", tags=("ticklabel",))
+                self.create_line(px, h - PAD_BOTTOM, px, h - PAD_BOTTOM + 4, fill="#333", tags=("tick",))
+                self.create_text(px, h - PAD_BOTTOM + 10, text=_format_eng(float(xv)), fill="#333", font=("TkDefaultFont", 7), anchor="n", tags=("ticklabel",))
             for yv in yticks:
                 try:
-                    py = h - pad_bottom - (float(yv) - yl) * y_scale
+                    py = h - PAD_BOTTOM - (float(yv) - yl) * y_scale
                 except Exception:
                     continue
-                if py < pad_top - 1 or py > h - pad_bottom + 1:
+                if py < PAD_TOP - 1 or py > h - PAD_BOTTOM + 1:
                     continue
-                self.create_line(pad_left - 4, py, pad_left, py, fill="#333", tags=("tick",))
-                self.create_text(pad_left - 6, py, text=_format_eng(float(yv)), fill="#333", font=("TkDefaultFont", 7), anchor="e", tags=("ticklabel",))
+                self.create_line(PAD_LEFT - 4, py, PAD_LEFT, py, fill="#333", tags=("tick",))
+                self.create_text(PAD_LEFT - 6, py, text=_format_eng(float(yv)), fill="#333", font=("TkDefaultFont", 7), anchor="e", tags=("ticklabel",))
             # polyline
             coords: list[float] = []
             for xv, yv in zip(x_arr, y_arr):
-                px = pad_left + (float(xv) - xl) * x_scale
-                py = h - pad_bottom - (float(yv) - yl) * y_scale
+                px = PAD_LEFT + (float(xv) - xl) * x_scale
+                py = h - PAD_BOTTOM - (float(yv) - yl) * y_scale
                 coords.append(px)
                 coords.append(py)
             if len(coords) >= 4:
@@ -1006,7 +1042,7 @@ class BaseChart(tk.Canvas):
                 if not items:
                     yl_lab = str(getattr(self, "_ylabel", "") or "y")
                     items = [("#1f4b99", yl_lab if yl_lab else "data", "line")]
-                _draw_legend_box(self, items, float(w - pad_right), float(pad_top))
+                _draw_legend_box(self, items, float(w - PAD_RIGHT), float(PAD_TOP))
             except Exception:
                 pass
             try:
