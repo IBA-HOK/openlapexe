@@ -189,7 +189,7 @@ def test_ggv_wireframe_ge_100_lines() -> None:
             # fallback: check internal verts count
             verts = getattr(c, "_verts_grid", None)
             if verts is not None:
-                assert verts.shape[0] == 400, "20x20 grid 400 verts expected"
+                assert verts.shape[0] in (400, 780), "closed-loop grid 400 legacy or 780 both-sides expected"
             else:
                 raise e
         # also check Vehicle47 compute_ggv 20x20 grid
@@ -296,7 +296,7 @@ def test_elevation_dual_y_and_accel_g() -> None:
         # check that legend or lines exist: at least 3 lines (ax,ay,g)
         # Our impl draws 3 lines, so count wireframe-like?
         c2.destroy()
-        # Steer: handle = beta*rack
+        # Steer: handle = delta*rack (S-ST1); magnitudes physical on cornering
         c3 = mod.ResultsSteerChart(root, width=600, height=400)
         c3.pack()
         root.update_idletasks()
@@ -304,13 +304,19 @@ def test_elevation_dual_y_and_accel_g() -> None:
         root.update_idletasks()
         handle = getattr(c3, "_handle", None)
         beta = getattr(c3, "_beta", None)
-        assert handle is not None and beta is not None
-        # handle = beta*rack (in deg)
+        delta = getattr(c3, "_delta", None)
+        assert handle is not None and beta is not None and delta is not None
+        # handle = delta*rack (in deg)
         from openlapexe.vehicle import Vehicle47
 
         rack = float(Vehicle47.from_json("f1").rack)
-        # beta_deg * rack = handle_deg
-        assert abs(float(handle[0]) - float(beta[0]) * rack) < 1e-6
+        # delta_deg * rack = handle_deg
+        assert abs(float(handle[0]) - float(delta[0]) * rack) < 1e-6
+        # cornering point: bicycle-model magnitudes must stay physical
+        idx = int(np.argmax(np.abs(delta)))
+        assert abs(float(delta[idx])) < 30.0, f"delta unphysical: {float(delta[idx])}"
+        assert abs(float(beta[idx])) < 15.0, f"beta unphysical: {float(beta[idx])}"
+        assert abs(float(handle[idx]) - float(delta[idx]) * rack) < 1e-6
         c3.destroy()
     finally:
         try:

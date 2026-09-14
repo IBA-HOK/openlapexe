@@ -125,8 +125,8 @@ def test_spa_f1_laptime_range_deterministic_and_fast() -> None:
     # freq arg respected: 50 same as default, 999 must raise ValueError (1..200)
     r3 = app.simulate("f1", "spa", freq=50)
     assert abs(r3.laptime - r1.laptime) < 1e-9
-    # corrected 101.104 band check ±0.5% => 100.598-101.609, keep outer 90-110 guard
-    assert 100.598 <= r1.laptime <= 101.61, f"laptime {r1.laptime} not in corrected 100.598-101.61"
+    # corrected 100.617 band check ±0.5% => 100.114-101.121, keep outer 90-110 guard
+    assert 100.114 <= r1.laptime <= 101.121, f"laptime {r1.laptime} not in corrected 100.114-101.121"
     with pytest.raises(ValueError):
         app.simulate("f1", "spa", freq=999)
 

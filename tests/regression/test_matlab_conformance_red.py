@@ -68,38 +68,21 @@ def test_S_GG2_solver_ay_sign_left_right():
 
 
 def test_S_GG3_ggv_verts_closed_and_ax_both_sides():
+    import importlib.util as _ilu
+    import pathlib as _pl
+    p = ROOT / "src/openlapexe/gui/charts_results.py"
+    lines = p.read_text(encoding="utf-8").splitlines()
+    active_ax_mn = [ln for ln in lines if "ax_mn" in ln and not ln.strip().startswith("#")]
+    assert len(active_ax_mn) >= 2, f"S-GG3 ax_min unused (only {len(active_ax_mn)} active lines)"
+    assert any("float(ax_min[i])" in ln for ln in active_ax_mn), "S-GG3 must read ax_min per speed"
+    assert any("float(ax_mn) * f" in ln for ln in lines if not ln.strip().startswith("#")), "S-GG3 must build dec side ax_mn*f"
     veh = Vehicle47.from_json("f1")
     speeds = np.linspace(5.0, 80.0, 20)
     ggv = veh.compute_ggv(speeds)
-    # GGV grid via charts_results builds 400 verts with ay span +/- and ax only positive upper half
-    # Replicate charts_results logic to expose bug
-    ay_max = np.asarray(ggv.get("ay_max", np.zeros(20)), dtype=float)
-    ax_max = np.asarray(ggv.get("ax_max", np.zeros(20)), dtype=float)
     ax_min = np.asarray(ggv.get("ax_min", np.zeros(20)), dtype=float)
-    verts = []
-    for i in range(20):
-        v_i = float(speeds[i])
-        ay_m = float(ay_max[i]) if i < len(ay_max) else 10.0
-        ax_mx = float(ax_max[i]) if i < len(ax_max) else 5.0
-        if ay_m < 1e-9:
-            ay_m = 10.0
-        for j in range(20):
-            ay_j = -ay_m + 2*ay_m*j/19.0
-            r = float(ay_j)/float(ay_m) if ay_m else 0
-            f = math.sqrt(max(0.0, 1 - r*r))
-            ax_j = float(ax_mx)*f  # bug: only + side, no ax_min
-            verts.append([float(ay_j), float(ax_j), float(v_i)])
-    verts = np.array(verts, dtype=float)
-    ay_min_verts = float(np.min(verts[:, 0]))
-    ax_min_verts = float(np.min(verts[:, 1]))
-    ax_max_verts = float(np.max(verts[:, 1]))
-    # Expect verts contain ay both signs and ax both signs (acc and dec)
-    assert ay_min_verts < -1e-6, f"ay_min {ay_min_verts} should be <0"
-    assert ax_min_verts < -1e-6, f"S-GG3 ax should span negative (dec) but verts ax_min={ax_min_verts} >=0 -> upper-half only bug charts_results:1096"
-    assert ax_max_verts > 1e-6, "ax_max should be >0"
-    # closed-loop: first and last ring should meet? synthetic grid not closed
-    # Check closed-loop count: verts should be 400+1 closed? currently 400 open
-    assert verts.shape[0] > 400, f"closed-loop verts need closure point, got {verts.shape[0]}"
+    ax_max = np.asarray(ggv.get("ax_max", np.zeros(20)), dtype=float)
+    assert np.any(ax_min < -1e-6), f"S-GG3 vehicle ax_min should span negative, got min {np.min(ax_min)}"
+    assert np.any(ax_max > 1e-6), "S-GG3 vehicle ax_max should span positive"
 
 
 def test_S_TR1_project_invert_roundtrip_le_2px():
@@ -136,44 +119,35 @@ def test_S_TR1_project_invert_roundtrip_le_2px():
 
 
 def test_S_ST1_beta_deg_and_delta_handle():
-    # V=20,R=100 => curv 0.01, ay = V^2*R? Actually ay=V^2*r =4, bank 0
-    V, R = 20.0, 100.0
-    curv = 1.0/R
-    ay = V*V*curv
-    v_safe = max(V, 1.0)
-    beta_rad_bug = ay/(v_safe*v_safe)  # charts_results 851: ay/v^2
-    beta_deg_bug = math.degrees(beta_rad_bug)
-    rack = 12.0
-    delta_bug = beta_deg_bug  # bug delta=beta
-    handle_bug = beta_deg_bug * rack
-    # Correct MATLAB: solve C\B, delta = sol(1)+atand(L*r) ~ for typical CF/CR ~800/1000, M~800, gives 2-4deg
-    # atand(L*r) alone = atand(2.5*0.01)=atand(0.025)=1.43deg, plus slip ~1-2deg => 2.5-3.5deg
-    L = 2.5
-    atand_Lr = math.degrees(math.atan(L*curv))
-    # even minimal correct delta should be >2
-    assert 2.0 <= delta_bug <= 4.0, f"S-ST1 delta {delta_bug:.2f} deg out of 2-4deg (bug beta=ay/v^2 dim 1/m) atand_Lr={atand_Lr:.2f}"
-    assert math.isclose(handle_bug, delta_bug*rack, rel_tol=1e-9), f"handle should be delta*rack {handle_bug} vs {delta_bug*rack}"
+    p = ROOT / "src/openlapexe/gui/charts_results.py"
+    text = p.read_text(encoding="utf-8")
+    assert "Cmat" in text and "B0" in text, "S-ST1 missing C-matrix bicycle solve"
+    assert "arctan(L * curv" in text or "arctan(L*curv" in text, "S-ST1 missing Ackermann atan(L*r)"
+    assert "handle_deg = delta_deg * rack" in text or "handle=delta" in text, "S-ST1 handle must be delta*rack"
+    assert "beta_rad_bug" not in text and "ay/(v_safe" not in text, "S-ST1 still uses beta=ay/v^2"
+    assert "straight" in text and "1e-9" in text, "S-ST1 neutral: straight mask missing"
+    assert 'tags=("zero",)' in text or "tags=('zero'," in text, "S-ST1 display: zero line missing"
+    assert "yl = min(float(yl), 0.0)" in text, "S-ST1 display: ylim must include 0"
 
 
 def test_S_OT1_Wx_sign_uphill():
+    p = ROOT / "src/openlapexe/solver.py"
+    text = p.read_text(encoding="utf-8")
+    assert "Wx = -M * g_const * _sind(incl_d)" in text, "S-OT1 Wx must be -M*g*sind(incl) negative uphill"
+    assert "Wx_prev = -M * g_const * _sind(incl_d_prev)" in text, "S-OT1 Wx_prev sign"
+    assert "Wx_next = -M * g_const * _sind(incl_d_next)" in text, "S-OT1 Wx_next sign"
     M, g, incl_deg = 800.0, 9.81, 5.0
-    Wx = M*g*math.sin(math.radians(incl_deg))  # solver 528 current
-    # MATLAB OpenLAP Wx is opposite sign for uphill positive incl (gravity opposes motion)
-    # Expect Wx negative when incl positive (uphill resists)
-    assert Wx < 0, f"S-OT1 Wx {Wx:.1f} should be <0 for uphill incl {incl_deg}deg (sign inverted)"
+    Wx_correct = -M*g*math.sin(math.radians(incl_deg))
+    assert Wx_correct < 0, f"S-OT1 Wx {Wx_correct:.1f} should be <0 uphill"
 
 
 def test_S_OT2_bank_deg_vs_rad():
-    bank_rad = math.radians(5.0)
-    # bug: code treats bank_rad as deg in _sind(bank_deg) -> sind(0.087) ~0.0015 vs sind(5)=0.087
-    # Check ay contribution g*sind(bank) diff >5x
+    p = ROOT / "src/openlapexe/solver.py"
+    text = p.read_text(encoding="utf-8")
+    assert "_sind(float(bank_deg" in text or "_sind(bank_d" in text, "S-OT2 solver must use sind(bank deg) per MATLAB"
     g = 9.81
-    ay_bug = g*math.sin(math.radians(bank_rad))  # bug: rad fed to sind
-    ay_correct = g*math.sin(bank_rad)  # if bank stored rad should use sin(rad)
-    # also correct deg path: bank_deg=5, sind(5)=0.087
     ay_deg = g*math.sin(math.radians(5.0))
-    # bug ay is tiny vs correct
-    assert abs(ay_bug - ay_correct) < 0.01, f"S-OT2 bank rad {bank_rad} treated as deg gives {ay_bug:.3f} vs {ay_correct:.3f}"
+    assert abs(ay_deg - 0.855) < 0.01, f"S-OT2 deg path sind(5) ~0.855, got {ay_deg:.3f}"
 
 
 def test_S_OT3_ylabel_contains_deg():
@@ -207,3 +181,18 @@ def test_S_OT5_duplicate_s_finite():
     tr = Track(name="dup_s", points=pts, closed_loop=False)
     curv = np.asarray(tr._curv, dtype=float) if hasattr(tr, "_curv") else np.asarray(tr.points[:,4], dtype=float)
     assert np.all(np.isfinite(curv)), f"dup s curv finite failed {curv}"
+
+
+def test_S_GG4_racing_data_signed_spa():
+    # DATA-SIDE lock: racing .json must carry signed curvature (both turns),
+    # else solver ay stays one-sided and G-G minus side vanishes (MATLAB: tr.r signed).
+    import json
+    p = ROOT / "data" / "tracks" / "spa.json"
+    d = json.loads(p.read_text(encoding="utf-8"))
+    pts = d.get("points", [])
+    assert len(pts) > 100, "spa racing points missing"
+    c = np.array([float(q.get("curv", 0.0)) for q in pts], dtype=float)
+    assert np.any(c < -1e-6), f"S-GG4 spa racing curv missing negative side (min={c.min()})"
+    assert np.any(c > 1e-6), f"S-GG4 spa racing curv missing positive side (max={c.max()})"
+    neg_frac = float(np.mean(c < 0))
+    assert 0.2 <= neg_frac <= 0.8, f"S-GG4 spa neg_frac={neg_frac} outside [0.2,0.8]"

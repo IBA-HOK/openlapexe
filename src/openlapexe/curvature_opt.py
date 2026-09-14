@@ -99,7 +99,7 @@ def compute_curvature_profile(
     c_xy: npt.NDArray[np.float64] | list | tuple,
     closed: bool = True,
 ) -> npt.NDArray[np.float64]:
-    """公開: 3点曲率 κ=|x'y''-y'x''|/|p'|³ を計算.
+    """公開: 3点曲率 κ=(x'y''-y'x'')/|p'|³ を計算 (符号付き, 左+/右-).
 
     Args:
         c_xy: (N,2) centerline
@@ -178,7 +178,7 @@ def optimize_centerline(
         iters: 固定反復回数 (決定論)
         width_margin: 制約マージン (w/2 - margin)
     Returns:
-        (center_xy (N,2), curv (N,))  curvは κ=|x'y''-y'x''|/|p'|³
+        (center_xy (N,2), curv (N,))  curvは符号付き κ=(x'y''-y'x'')/|p'|³
     """
     left = _as_xy(left_xy)
     right = _as_xy(right_xy)

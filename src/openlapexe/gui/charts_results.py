@@ -7,7 +7,7 @@ Classes:
 - ResultsElevationChart(標高+曲率/距離 dual-y)
 - ResultsAccelChart(縦G+横G+G合力√(ax²+ay²)/距離)
 - ResultsInputChart(tps・bps/距離 ylim -10..110)
-- ResultsSteerChart(ハンドル/δ/β β≈ay/v²・ハンドル=β*rack)
+- ResultsSteerChart(ハンドル/δ/β bicycle solve・ハンドル=δ*rack)
 - ResultsGGV3DChart(scatter+surf相当 wireframe投影 Vehicle47 20×20 >=100lines)
 - ResultsTrackMapChart(速度色付き+方向矢印+axis equal)
 
@@ -138,7 +138,12 @@ def _load_track_arrays(
     return s_t, z_t, curv_t, x_t, y_t
 
 
-def _get_rack() -> float:
+def _get_rack(result: object | None = None) -> float:
+    try:
+        veh = _get_vehicle(result)
+        return float(getattr(veh, "rack", 12.0))
+    except Exception:
+        pass
     try:
         from openlapexe.vehicle import Vehicle47 as _V47  # type: ignore
 
@@ -146,6 +151,65 @@ def _get_rack() -> float:
         return float(getattr(v, "rack", 12.0))
     except Exception:
         return 12.0
+
+
+def _get_vehicle(result: object | None = None) -> object:
+    try:
+        if result is not None:
+            for _attr in ("vehicle", "_vehicle", "veh", "_veh", "vehicle_obj", "_vehicle_obj"):
+                try:
+                    _v = getattr(result, _attr, None)
+                    if _v is not None and hasattr(_v, "M") and hasattr(_v, "rack"):
+                        return _v
+                except Exception:
+                    continue
+            for _attr in ("vehicle_name", "_vehicle_name", "vehicleName", "vehicle_id", "veh_name"):
+                try:
+                    _name = getattr(result, _attr, None)
+                    if isinstance(_name, str) and _name.strip():
+                        from openlapexe.vehicle import Vehicle47 as _V47b  # type: ignore
+
+                        return _V47b.from_json(_name.strip().removesuffix(".json"))
+                    if isinstance(_name, dict):
+                        from openlapexe.vehicle import Vehicle47 as _V47c  # type: ignore
+
+                        return _V47c.from_json(_name)  # type: ignore[arg-type]
+                except Exception:
+                    continue
+            if hasattr(result, "CF") and hasattr(result, "CR") and hasattr(result, "M"):
+                return result
+    except Exception:
+        pass
+    try:
+        from openlapexe.vehicle import Vehicle47 as _V47d  # type: ignore
+
+        return _V47d.from_json("f1")
+    except Exception:
+
+        class _Dummy:
+            CF = 800.0
+            CR = 1000.0
+            M = 800.0
+            L = 2.5
+            df = 0.5
+            rack = 12.0
+
+        return _Dummy()
+
+
+def _vehicle_params(vehicle: object) -> tuple[float, float, float, float, float, float, float]:
+    try:
+        CF = float(getattr(vehicle, "CF", 800.0))
+        CR = float(getattr(vehicle, "CR", 1000.0))
+        M = float(getattr(vehicle, "M", getattr(vehicle, "mass_kg", 800.0)))
+        L = float(getattr(vehicle, "L", getattr(vehicle, "wheelbase_m", 2.5)))
+        df = float(getattr(vehicle, "df", getattr(vehicle, "weight_dist_front", 0.5)))
+        rack = float(getattr(vehicle, "rack", 12.0))
+        a = float((1.0 - df) * L)
+        b = float(df * L)
+        return CF, CR, a, b, M, L, rack
+    except Exception:
+        return 800.0, 1000.0, 1.25, 1.25, 800.0, 2.5, 12.0
 
 
 def _thin_pair(a: _np.ndarray, b: _np.ndarray, limit: int = 800) -> tuple[_np.ndarray, _np.ndarray]:
@@ -837,40 +901,98 @@ class ResultsSteerChart(_XYChart):
     def plot(self, result: object) -> None:  # type: ignore[override]
         try:
             s = getattr(result, "s", None)
-            ay = getattr(result, "ay", None)
             v = getattr(result, "v", None)
-            if s is not None and ay is not None and v is not None:
+            if s is not None and v is not None:
                 s_arr = _np.asarray(s, dtype=float)
-                ay_arr = _np.asarray(ay, dtype=float)
                 v_arr = _np.asarray(v, dtype=float)
-                n = min(int(s_arr.shape[0]), int(ay_arr.shape[0]), int(v_arr.shape[0]))
+                n = min(int(s_arr.shape[0]), int(v_arr.shape[0]))
                 s_arr = s_arr[:n]
-                ay_arr = ay_arr[:n]
                 v_arr = v_arr[:n]
-                # beta approx ay / v² (rad)
-                v_safe = _np.maximum(v_arr, 1.0)
-                beta = ay_arr / (v_safe * v_safe + 1e-9)
-                # clip to reasonable steering angles
-                beta = _np.clip(beta, -0.4, 0.4)
-                rack = _get_rack()
-                handle = beta * rack
-                delta = beta  # wheel angle = beta
-                # convert to deg for display
-                beta_deg = _np.degrees(beta)
-                delta_deg = _np.degrees(delta)
-                handle_deg = _np.degrees(handle)
-                if s_arr.size > 800:
-                    s_arr, beta_deg, delta_deg = _thin_triple(s_arr, beta_deg, delta_deg, 800)
-                    # handle thin separately but keep consistent step: use same indices via slicing same step
-                    # recompute handle after thin: already thinned beta, handle = beta*rack in deg -> *rack factor
-                    # but we already have handle_deg before thin; need to thin it similarly
-                    # simpler: recompute from thinned beta
-                    # To keep deterministic, re-thin handle similarly with same step logic: take handle_deg original and apply same step
-                    # Instead just set handle_deg = beta_deg * rack (since linear)
-                    handle_deg = beta_deg * rack
+                if s_arr.size < 1:
+                    raise ValueError("empty")
+                try:
+                    curv_try = getattr(result, "curv", None)
+                    if curv_try is None:
+                        curv_try = getattr(result, "curvature", None)
+                    if curv_try is not None:
+                        curv_arr = _np.asarray(curv_try, dtype=float)[:n]
+                        if curv_arr.shape[0] != n:
+                            curv_arr = _np.resize(curv_arr, n)
+                    else:
+                        raise ValueError("no curv in result")
+                    bank_try = getattr(result, "bank", None)
+                    if bank_try is None:
+                        bank_try = getattr(result, "bank_deg", None)
+                    if bank_try is not None:
+                        bank_arr = _np.asarray(bank_try, dtype=float)[:n]
+                        if bank_arr.shape[0] != n:
+                            bank_arr = _np.resize(bank_arr, n)
+                    else:
+                        bank_arr = _np.zeros(n, dtype=float)
+                except Exception:
+                    try:
+                        name = _infer_track_name(result, getattr(self, "_track_name", "spa"))
+                        import importlib as _ilb
+
+                        _mod = _ilb.import_module("openlapexe.track")
+                        _Cls = getattr(_mod, "Track", None) or getattr(_mod, "Track2", None)
+                        if _Cls is not None:
+                            tr = _Cls.from_json(name)
+                            pts = _np.asarray(tr.points, dtype=float)
+                            if pts.shape[0] >= 2 and pts.shape[1] >= 6:
+                                s_t = _np.asarray(pts[:, 0], dtype=float)
+                                curv_t = _np.asarray(pts[:, 4], dtype=float)
+                                bank_t = _np.asarray(pts[:, 5], dtype=float)
+                                bank_t_deg = _np.degrees(bank_t)
+                                curv_arr = _np.interp(s_arr, s_t, curv_t, left=float(curv_t[0]), right=float(curv_t[-1]))
+                                bank_arr = _np.interp(s_arr, s_t, bank_t_deg, left=float(bank_t_deg[0]), right=float(bank_t_deg[-1]))
+                            else:
+                                raise ValueError("pts shape")
+                        else:
+                            raise ValueError("no track class")
+                    except Exception:
+                        try:
+                            name2 = _infer_track_name(result, getattr(self, "_track_name", "spa"))
+                            s_t2, _, curv_t2, _, _ = _load_track_arrays(s_arr, track_name=name2, result=result)
+                            curv_arr = _np.interp(s_arr, s_t2, curv_t2, left=float(curv_t2[0]), right=float(curv_t2[-1]))
+                        except Exception:
+                            curv_arr = _np.zeros(n, dtype=float)
+                        bank_arr = _np.zeros(n, dtype=float)
+                veh = _get_vehicle(result)
+                CF, CR, a, b, M, L, rack = _vehicle_params(veh)
+                g = 9.81
+                CF_rad = CF * 57.29577951308232
+                CR_rad = CR * 57.29577951308232
+                Kf = 2 * CF_rad
+                Kr = 2 * CR_rad
+                Cmat = _np.array([[Kf, -(Kf + Kr)], [Kf * a, -(Kf * a - Kr * b)]], dtype=float)
+                det = float(_np.linalg.det(Cmat))
+                if abs(det) < 1e-6 or not _np.isfinite(det):
+                    delta_rad = _np.arctan(L * curv_arr)
+                    beta_rad = _np.zeros_like(delta_rad)
                 else:
-                    # ensure handle consistent
-                    handle_deg = beta_deg * rack
+                    invC = _np.linalg.inv(Cmat)
+                    B0 = M * v_arr * v_arr * curv_arr + (Kf * a - Kr * b) * curv_arr + M * g * _np.sin(_np.radians(bank_arr))
+                    B1 = (Kf * a * a + Kr * b * b) * curv_arr
+                    sol0 = invC[0, 0] * B0 + invC[0, 1] * B1
+                    sol1 = invC[1, 0] * B0 + invC[1, 1] * B1
+                    delta_rad = sol0
+                    beta_rad = sol1
+                straight = _np.abs(curv_arr) < 1e-9
+                if _np.any(straight):
+                    delta_rad = _np.where(straight, 0.0, delta_rad)
+                    beta_rad = _np.where(straight, 0.0, beta_rad)
+                delta_deg = _np.degrees(delta_rad)
+                beta_deg = _np.degrees(beta_rad)
+                handle_deg = delta_deg * rack
+                if s_arr.size > 800:
+                    step = (int(s_arr.shape[0]) + 800 - 1) // 800
+                    s_arr = s_arr[::step]
+                    delta_deg = delta_deg[::step]
+                    beta_deg = beta_deg[::step]
+                    handle_deg = delta_deg * rack
+                else:
+                    handle_deg = delta_deg * rack
                 self._s_st = s_arr
                 self._beta = beta_deg
                 self._delta = delta_deg
@@ -957,6 +1079,8 @@ class ResultsSteerChart(_XYChart):
             xl, xh = _axis_limits(s_arr, 0.02)
             all_y = _np.concatenate([handle_arr, delta_arr, beta_arr]) if handle_arr.size else handle_arr
             yl, yh = _axis_limits(all_y, 0.10)
+            yl = min(float(yl), 0.0)
+            yh = max(float(yh), 0.0)
             if xh - xl < 1e-9:
                 xh = xl + 1.0
             if yh - yl < 1e-9:
@@ -1004,13 +1128,19 @@ class ResultsSteerChart(_XYChart):
             _draw(handle_arr, "#1f4b99", "handle_line")
             _draw(delta_arr, "#c0392b", "delta_line")
             _draw(beta_arr, "#27ae60", "beta_line")
+            try:
+                if float(yl) <= 0.0 <= float(yh) and abs(float(yh) - float(yl)) > 1e-12:
+                    py0 = y1 - (0.0 - float(yl)) * y_scale
+                    self.create_line(x0, py0, x1, py0, fill="#888888", dash=(4, 2), tags=("zero",))
+            except Exception:
+                pass
             self.create_rectangle(x1 - 160, y0 + 4, x1 - 10, y0 + 52, fill="white", outline="#ccc", tags=("legend",))
             self.create_line(x1 - 155, y0 + 12, x1 - 140, y0 + 12, fill="#1f4b99", width=2, tags=("legend",))
-            self.create_text(x1 - 138, y0 + 12, text="handle β*rack", fill="#333", font=("TkDefaultFont", 7), anchor="w", tags=("legend",))
+            self.create_text(x1 - 138, y0 + 12, text="handle δ*rack", fill="#333", font=("TkDefaultFont", 7), anchor="w", tags=("legend",))
             self.create_line(x1 - 155, y0 + 24, x1 - 140, y0 + 24, fill="#c0392b", width=2, tags=("legend",))
             self.create_text(x1 - 138, y0 + 24, text="δ", fill="#333", font=("TkDefaultFont", 7), anchor="w", tags=("legend",))
             self.create_line(x1 - 155, y0 + 36, x1 - 140, y0 + 36, fill="#27ae60", width=2, tags=("legend",))
-            self.create_text(x1 - 138, y0 + 36, text="β≈ay/v²", fill="#333", font=("TkDefaultFont", 7), anchor="w", tags=("legend",))
+            self.create_text(x1 - 138, y0 + 36, text="β", fill="#333", font=("TkDefaultFont", 7), anchor="w", tags=("legend",))
         except Exception:
             pass
         finally:
@@ -1076,25 +1206,32 @@ class ResultsGGV3DChart(_BaseChart):
                 ax_max = _np.asarray(ggv.get("ax_max", _np.zeros(20)), dtype=float)
                 ax_min = _np.asarray(ggv.get("ax_min", _np.zeros(20)), dtype=float)
                 ay_max = _np.asarray(ggv.get("ay_max", _np.zeros(20)), dtype=float)
-                # Build grid verts (400,3) with (ay, ax, v) -> for wireframe
+                # Build closed-loop GGV verts (780,3) MATLAB OpenVEHICLE:286-315 faithful
                 verts_list: list[list[float]] = []
                 for i in range(20):
                     v_i = float(speeds[i])
                     ay_m = float(ay_max[i]) if i < ay_max.shape[0] else 10.0
                     ax_mx = float(ax_max[i]) if i < ax_max.shape[0] else 5.0
-                    # ax_mn = float(ax_min[i]) if i < ax_min.shape[0] else -10.0
+                    ax_mn = float(ax_min[i]) if i < ax_min.shape[0] else -10.0
                     if ay_m < 1e-9:
                         ay_m = 10.0
                     for j in range(20):
                         ay_j = -ay_m + 2.0 * ay_m * j / 19.0
-                        # ellipse factor
                         if abs(ay_m) < 1e-9:
                             f = 0.0
                         else:
                             r = float(ay_j) / float(ay_m)
                             f = _math.sqrt(max(0.0, 1.0 - r * r))
                         ax_j = float(ax_mx) * f
-                        # use ax_j as y, ay_j as x
+                        verts_list.append([float(ay_j), float(ax_j), float(v_i)])
+                    for j in range(1, 20):
+                        ay_j = -ay_m + 2.0 * ay_m * j / 19.0
+                        if abs(ay_m) < 1e-9:
+                            f = 0.0
+                        else:
+                            r = float(ay_j) / float(ay_m)
+                            f = _math.sqrt(max(0.0, 1.0 - r * r))
+                        ax_j = float(ax_mn) * f
                         verts_list.append([float(ay_j), float(ax_j), float(v_i)])
                 verts = _np.array(verts_list, dtype=float)
                 self._verts_grid = verts
@@ -1104,13 +1241,16 @@ class ResultsGGV3DChart(_BaseChart):
                 proj = _project_wireframe(verts, Rx, Ry)
                 self._proj_grid = proj
             except Exception:
-                # fallback synthetic grid
-                verts = _np.zeros((400, 3), dtype=float)
+                verts = _np.zeros((780, 3), dtype=float)
                 for i in range(20):
                     for j in range(20):
-                        verts[i * 20 + j, 0] = -10 + 20 * j / 19.0
-                        verts[i * 20 + j, 1] = 5 * _math.sqrt(max(0.0, 1 - (verts[i * 20 + j, 0] / 10) ** 2))
-                        verts[i * 20 + j, 2] = 5 + 75 * i / 19.0
+                        verts[i * 39 + j, 0] = -10 + 20 * j / 19.0
+                        verts[i * 39 + j, 1] = 5 * _math.sqrt(max(0.0, 1 - (verts[i * 39 + j, 0] / 10) ** 2))
+                        verts[i * 39 + j, 2] = 5 + 75 * i / 19.0
+                    for j in range(1, 20):
+                        verts[i * 39 + 19 + j, 0] = -10 + 20 * j / 19.0
+                        verts[i * 39 + 19 + j, 1] = -10 * _math.sqrt(max(0.0, 1 - (verts[i * 39 + 19 + j, 0] / 10) ** 2))
+                        verts[i * 39 + 19 + j, 2] = 5 + 75 * i / 19.0
                 self._verts_grid = verts
                 Rx = _np.array([[1, 0, 0], [0, _math.cos(0.5), -_math.sin(0.5)], [0, _math.sin(0.5), _math.cos(0.5)]], dtype=float)
                 Ry = _np.array([[_math.cos(0.8), 0, _math.sin(0.8)], [0, 1, 0], [-_math.sin(0.8), 0, _math.cos(0.8)]], dtype=float)

@@ -12,7 +12,7 @@ Threshold provenance (PYTHONPATH=src, simulate_full 50Hz, 2026-09-13 shape verif
   AgentDoc/reference/gt500_suzuka_bop_calc.md (M_final 1100). Q2 2024 103.143s err +20.9%,
   2025 105.377 err +18.33% informational.
 - Kart ordering: measured rental_gx270/suzuka_south 75.43316276317103s,
-  fs125_x30/suzuka_south 47.62604355376272s (task 47.63s, actual 48.932s => -2.6689% within ±10% [44.04,53.82]),
+  fs125_x30/suzuka_south 47.62605988808448s (task 47.63s, actual 48.932s => -2.6689% within ±10% [44.04,53.82]),
   rental_gx270/sugo_west 58.603754315162085s, fs125_x30/sugo_west 50.35453153995716s;
   bands [20,80] strict and [15,90] info must PASS; ordering rental>fs125 both tracks,
   sugo_west<suzuka_south for rental (58.6<75.4) and any-vehicle sugo<south guard.
@@ -137,7 +137,7 @@ def test_kart_ordering() -> None:
 
     # measured values refreshed to 2026-09-13 shape verification
     npt.assert_allclose(rental_south, 75.43316276317103, atol=0.05, rtol=0)
-    npt.assert_allclose(fs125_south, 47.62604355376272, atol=0.02, rtol=0)
+    npt.assert_allclose(fs125_south, 47.62605988808448, atol=0.02, rtol=0)
     npt.assert_allclose(rental_sugo, 58.603754315162085, atol=0.05, rtol=0)
     npt.assert_allclose(fs125_sugo, 50.35453153995716, atol=0.05, rtol=0)
 
@@ -157,7 +157,7 @@ def test_kart_ordering() -> None:
 
     # fs125 south within ±10% of actual 48.932 ensures shape fix PASS (-2.7%)
     actual_fs125 = 48.932
-    npt.assert_allclose(fs125_south, 47.62604355376272, atol=1e-9, rtol=0)
+    npt.assert_allclose(fs125_south, 47.62605988808448, atol=1e-9, rtol=0)
     assert actual_fs125 * 0.9 <= fs125_south <= actual_fs125 * 1.1, f"fs125 south {fs125_south} not within ±10% of {actual_fs125}"
 
     # also verify determinism for kart already checked above; extra south determinism

@@ -525,7 +525,7 @@ def simulate_full(
         incl_d = float(incl_arr[_i])  # MATLAB:OpenLAP.m: incl [deg]
         Wz = M * g_const * _cosd(bank_d) * _cosd(incl_d)  # MATLAB:OpenLAP.m: Wz=M*g*cosd(bank)*cosd(incl)
         Wy = -M * g_const * _sind(bank_d)  # MATLAB:OpenLAP.m: Wy=-M*g*sind(bank)
-        Wx = M * g_const * _sind(incl_d)  # MATLAB:OpenLAP.m: Wx=M*g*sind(incl) per task spec (unused in lateral)
+        Wx = -M * g_const * _sind(incl_d)  # FIX S-OT1: Wx negative uphill
         _ = Wx  # keep for completeness, lateral uses Wz/Wy/D
         grip = float(grip_comb[_i])  # MATLAB:OpenLAP.m:667 tr.factor_grip*veh.factor_grip
         dmy = grip * sens_y_base  # MATLAB:OpenLAP.m:691 dmy=grip*sens_y
@@ -675,7 +675,7 @@ def simulate_full(
             Fz_aero_prev = 0.5 * rho * factor_Cl * Cl * A * v_prev * v_prev  # negative
             Fz_total_prev = Fz_mass_prev + Fz_aero_prev
             Roll_Dr_prev = Cr * abs(Fz_total_prev)  # negative (Cr negative)
-            Wx_prev = M * g_const * _sind(incl_d_prev)  # MATLAB canonical Wx=M*g*sind(incl) incl=atan2(dz,dx) deg
+            Wx_prev = -M * g_const * _sind(incl_d_prev)  # FIX S-OT1: Wx negative uphill
             ax_drag_prev = (Aero_Dr_prev + Roll_Dr_prev + Wx_prev) / max(M, 1e-9)
             ax_com_prev = ax_tyre_scaled if ax_tyre_scaled < ax_power else ax_power  # MATLAB: ax_com=min(...)
             ax_avail = ax_com_prev + ax_drag_prev  # MATLAB:vehicle_model_comb ax=ax_com+ax_drag
@@ -715,7 +715,7 @@ def simulate_full(
             Fz_aero_next = 0.5 * rho * factor_Cl * Cl * A * v_next * v_next
             Fz_total_next = Fz_mass_next + Fz_aero_next
             Roll_Dr_next = Cr * abs(Fz_total_next)
-            Wx_next = M * g_const * _sind(incl_d_next)
+            Wx_next = -M * g_const * _sind(incl_d_next)  # FIX S-OT1: Wx negative uphill
             ax_drag_next = (Aero_Dr_next + Roll_Dr_next + Wx_next) / max(M, 1e-9)
             ax_avail_neg = ax_brake + ax_drag_next  # both negative, MATLAB vehicle_model_comb braking
             ax_brake_abs = abs(ax_avail_neg)
@@ -796,7 +796,7 @@ def simulate_full(
         Fz_aero = 0.5 * rho * factor_Cl * Cl * A * vi * vi  # MATLAB:OpenLAP.m:469 Fz_aero
         Fz_total = Fz_mass + Fz_aero  # MATLAB:OpenLAP.m:470 Fz_total
         Fx_roll = Cr * abs(Fz_total)  # MATLAB:OpenLAP.m:472 Fx_roll
-        Wx = M * g_const * _sind(float(incl_arr[i]))  # MATLAB:OpenLAP.m Wx
+        Wx = -M * g_const * _sind(float(incl_arr[i]))  # FIX S-OT1: Wx negative uphill
         ax_drag = (Aero_Dr + Fx_roll + Wx) / max(M, 1e-9)  # MATLAB:OpenLAP.m:230 ax_drag
         ax_com = float(ax_arr[i]) - ax_drag  # command
         if ax_com > 1e-9:  # need throttle  MATLAB:OpenLAP.m ax_needed>=0
